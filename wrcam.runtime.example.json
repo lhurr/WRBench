@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "defaults": {
+    "gpu_id": 0
+  },
+  "models": {
+    "easyanimate-v51-camera": {
+      "python_bin": "/path/to/easyanimate/venv/bin/python",
+      "repo_root": "/path/to/EasyAnimate",
+      "model_path": "/path/to/easyanimate/checkpoints",
+      "gpu_id": 0
+    },
+    "spatia": {
+      "python_bin": "/path/to/spatia/venv/bin/python",
+      "repo_root": "/path/to/Spatia",
+      "gpu_id": 0,
+      "extra_paths": {
+        "vace_path": "/path/to/spatia/control_weight_8500.safetensors",
+        "lora_path": "/path/to/spatia/lora_weights_10000.safetensors",
+        "num_inference_steps": "40",
+        "cfg_scale": "3.5",
+        "sigma_shift": "5.0",
+        "seed": "20917"
+      }
+    }
+  }
+}

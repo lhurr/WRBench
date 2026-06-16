@@ -1,0 +1,15 @@
+{
+  "key": "cosmos3-nano-generator",
+  "aliases": [
+    "cosmos3-nano-generator",
+    "cosmos3-nano",
+    "cosmos3_nano_generator",
+    "cosmos3_nano"
+  ],
+  "status": "deferred",
+  "input_kind": "",
+  "adapter": "",
+  "payload_type": "",
+  "notes": "removed from current WRBench run set by user direction on 2026-06-16; keep aliases only for historical artifact normalization",
+  "capabilities": {}
+}

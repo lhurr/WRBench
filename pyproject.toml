@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wrcam"
+version = "0.1.0"
+description = "Out-of-the-box unified camera control for video-generation world models: frame-level actions, arbitrary translation/rotation, and preset combinations compiled to model-native payloads."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [{ name = "WRBench" }]
+keywords = ["video-generation", "camera-control", "world-model", "benchmark", "wrbench"]
+dependencies = ["numpy>=1.23"]
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
+prompts = ["httpx>=0.27"]
+firstframe = ["httpx>=0.27", "pillow>=10"]
+all = ["httpx>=0.27", "pillow>=10", "pytest>=7"]
+
+[project.scripts]
+wrcam = "wrcam.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+wrcam = ["models/*.json", "prompts/templates/*.txt"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
