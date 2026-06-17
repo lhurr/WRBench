@@ -140,3 +140,100 @@ def test_frame_count_sums():
 def test_no_frames_gives_none_frame_count():
     script = CameraScript().yaw("left", degrees=60)
     assert script.frame_count is None
+
+
+# ---------------------------------------------------------------------------
+# Compound / simultaneous: segment() API and + string syntax.
+# ---------------------------------------------------------------------------
+
+def test_segment_produces_simultaneous_flag():
+    script = CameraScript().segment(40, yaw_left=60, dolly_forward=1.0)
+    assert len(script.actions) == 2
+    assert script.actions[0].simultaneous is False
+    assert script.actions[1].simultaneous is True
+
+
+def test_segment_frame_count_not_doubled():
+    script = CameraScript().segment(40, yaw_left=60, dolly_forward=1.0)
+    assert script.frame_count == 40
+
+
+def test_segment_chained_frame_count():
+    script = (
+        CameraScript()
+        .segment(40, yaw_left=60, dolly_forward=1.0)
+        .segment(41, yaw_right=60, dolly_back=1.0)
+    )
+    assert script.frame_count == 81
+
+
+def test_segment_to_string():
+    script = CameraScript().segment(40, yaw_left=60, dolly_forward=1.0)
+    s = script.to_string()
+    assert "+" in s
+    assert "@40" in s
+    assert "yaw:left:60" in s
+    assert "dolly:forward:1" in s
+
+
+def test_parse_compound_string():
+    script = parse_camera_script("yaw:left:60+dolly:forward:1@40,yaw:right:60@41")
+    assert script.frame_count == 81
+    assert len(script.actions) == 3
+    assert script.actions[0].simultaneous is False
+    assert script.actions[1].simultaneous is True
+    assert script.actions[2].simultaneous is False
+
+
+def test_compound_round_trip():
+    original = "yaw:left:60+dolly:forward:1@40,yaw:right:60@41"
+    script = parse_camera_script(original)
+    assert script.to_string() == original
+
+
+def test_compound_round_trip_three_simultaneous():
+    original = "yaw:left:30+pitch:down:15+pan:right:0.5@40"
+    script = parse_camera_script(original)
+    assert script.to_string() == original
+    assert script.frame_count == 40
+    assert len(script.actions) == 3
+
+
+def test_segment_equals_parsed_compound():
+    built = CameraScript().segment(40, yaw_left=60, dolly_forward=1.0)
+    parsed = parse_camera_script("yaw:left:60+dolly:forward:1@40")
+    assert built == parsed
+
+
+def test_segment_bad_kwarg_no_underscore():
+    with pytest.raises(ValueError, match="kind_direction"):
+        CameraScript().segment(40, yaw=60)
+
+
+def test_segment_bad_kind():
+    with pytest.raises(ValueError, match="Unknown motion kind"):
+        CameraScript().segment(40, zoom_in=2.0)
+
+
+def test_segment_requires_kwargs():
+    with pytest.raises(ValueError, match="requires at least one"):
+        CameraScript().segment(40)
+
+
+def test_compound_three_actions_frame_count():
+    script = CameraScript().segment(40, yaw_left=30, pitch_down=15, crane_up=0.2)
+    assert script.frame_count == 40
+    assert len(script.actions) == 3
+
+
+COMPOUND_ROUND_TRIP_CASES = [
+    ("arc", "yaw:left:60+dolly:forward:1@40,yaw:right:60+dolly:back:1@41"),
+    ("diagonal", "yaw:left:30+pitch:down:15@40"),
+    ("three_motion", "yaw:left:30+pitch:down:15+pan:right:0.5@40"),
+    ("single_then_compound", "static@10,yaw:left:60+dolly:forward:1@40"),
+]
+
+
+@pytest.mark.parametrize("label,s", COMPOUND_ROUND_TRIP_CASES, ids=[c[0] for c in COMPOUND_ROUND_TRIP_CASES])
+def test_compound_round_trip_cases(label, s):
+    assert parse_camera_script(s).to_string() == s

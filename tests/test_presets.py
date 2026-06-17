@@ -5,8 +5,11 @@ import pytest
 from wrcam.actions import CameraScript
 from wrcam.presets import (
     PRESETS,
+    arc_LR,
+    arc_RL,
     build_preset,
     go_return,
+    orbit,
     pan_LR,
     pan_RL,
     preset_names,
@@ -18,10 +21,10 @@ from wrcam.presets import (
 
 
 # ---------------------------------------------------------------------------
-# preset_names() includes the five canonical presets.
+# preset_names() includes all canonical presets.
 # ---------------------------------------------------------------------------
 
-EXPECTED_PRESETS = {"static", "yaw_LR", "yaw_RL", "pan_LR", "pan_RL"}
+EXPECTED_PRESETS = {"static", "yaw_LR", "yaw_RL", "pan_LR", "pan_RL", "arc_LR", "arc_RL", "orbit"}
 
 
 def test_preset_names_includes_all():
@@ -160,3 +163,53 @@ def test_go_return_translation():
     assert script.frame_count == 60
     assert script.actions[0].kind == "pan"
     assert script.actions[0].direction == "left"
+
+
+# ---------------------------------------------------------------------------
+# Compound presets: arc_LR, arc_RL, orbit.
+# ---------------------------------------------------------------------------
+
+def test_arc_LR_frame_count():
+    assert arc_LR(frames=81).frame_count == 81
+
+
+def test_arc_RL_frame_count():
+    assert arc_RL(frames=81).frame_count == 81
+
+
+def test_orbit_frame_count():
+    assert orbit(frames=81).frame_count == 81
+
+
+def test_arc_LR_has_simultaneous_actions():
+    script = arc_LR(peak_deg=60, dolly_amount=1.0, frames=81)
+    # Each half has 2 simultaneous actions; 4 total
+    assert len(script.actions) == 4
+    assert script.actions[1].simultaneous is True
+    assert script.actions[3].simultaneous is True
+
+
+def test_arc_LR_first_segment_kinds():
+    script = arc_LR(peak_deg=40, dolly_amount=0.8)
+    a0, a1 = script.actions[0], script.actions[1]
+    assert {a0.kind, a1.kind} == {"yaw", "dolly"}
+    assert a0.direction == "left"
+    assert a1.direction == "forward"
+
+
+def test_orbit_segment_kinds():
+    script = orbit(peak_deg=30, pan_amount=0.5)
+    a0, a1 = script.actions[0], script.actions[1]
+    assert {a0.kind, a1.kind} == {"yaw", "pan"}
+
+
+def test_build_preset_arc_LR():
+    via_build = build_preset("arc_LR", peak_deg=30, frames=60)
+    via_direct = arc_LR(30, frames=60)
+    assert via_build == via_direct
+
+
+@pytest.mark.parametrize("name", ["arc_LR", "arc_RL", "orbit"])
+def test_compound_preset_even_frame_count(name):
+    script = PRESETS[name](frames=60)
+    assert script.frame_count == 60

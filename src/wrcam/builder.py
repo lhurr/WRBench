@@ -1,9 +1,14 @@
 """Integrate frame camera actions into a canonical OpenCV C2W trajectory.
 
 Rotations accumulate about the running camera frame; translations accumulate in
-the running camera basis. Within a segment the motion is linearly interpolated
+the running camera basis.  Within a segment the motion is linearly interpolated
 across its frames, giving near-per-frame control for arbitrary angles and
 arbitrary translation directions.
+
+Simultaneous actions (marked with ``simultaneous=True``) share a single time
+window.  The builder composes all rotation contributions by sequential matrix
+multiplication and all translation contributions by vector addition, then
+interpolates the combined transform by scaling each component by ``alpha``.
 """
 
 from __future__ import annotations
@@ -72,6 +77,22 @@ def _expanded_actions(script: CameraScript) -> list[FrameAction]:
     return expanded
 
 
+def _group_segments(actions: list[FrameAction]) -> list[list[FrameAction]]:
+    """Group flat action list into time-window segments of simultaneous actions.
+
+    A new segment starts whenever ``action.simultaneous`` is ``False``.
+    All actions within a segment share the same ``frames`` value and are
+    applied concurrently during that window.
+    """
+    segments: list[list[FrameAction]] = []
+    for action in actions:
+        if action.simultaneous and segments:
+            segments[-1].append(action)
+        else:
+            segments.append([action])
+    return segments
+
+
 def build_camera_trajectory(
     script: CameraScript | str,
     *,
@@ -81,7 +102,14 @@ def build_camera_trajectory(
     intrinsics: np.ndarray | None = None,
     camera_type: str | None = None,
 ) -> CameraTrajectory:
-    """Integrate actions into a canonical normalized OpenCV C2W trajectory."""
+    """Integrate actions into a canonical normalized OpenCV C2W trajectory.
+
+    For compound segments (simultaneous rotation **and** translation), each
+    rotation contribution is scaled by ``alpha`` and composed sequentially,
+    and each translation contribution is scaled by ``alpha`` and summed.
+    This gives smooth, per-frame interpolation for arbitrary combined motions
+    such as arc shots (yaw + dolly) or diagonal looks (yaw + pitch).
+    """
 
     if isinstance(script, str):
         script = parse_camera_script(script, fps=fps)
@@ -92,30 +120,42 @@ def build_camera_trajectory(
     current_t = np.zeros(3, dtype=np.float32)
     out_idx = 0
 
-    for action in actions:
-        n = int(action.frames or 0)
+    for seg in _group_segments(actions):
+        n = int(seg[0].frames or 0)
         start_r = current_r.copy()
         start_t = current_t.copy()
-        if action.kind in {"yaw", "pitch", "roll"}:
-            end_r = start_r @ _rotation_matrix(action.kind, _signed_rotation_degrees(action))
-            end_t = start_t
-        elif action.kind in {"pan", "dolly", "crane"}:
-            end_r = start_r
-            end_t = start_t + _translation_delta(action)
-        else:
-            end_r = start_r
-            end_t = start_t
 
+        # Compute end-of-segment rotation and translation by composing all
+        # actions in the simultaneous group.
+        end_r = start_r.copy()
+        end_t = start_t.copy()
+        for action in seg:
+            if action.kind in {"yaw", "pitch", "roll"}:
+                end_r = end_r @ _rotation_matrix(action.kind, _signed_rotation_degrees(action))
+            elif action.kind in {"pan", "dolly", "crane"}:
+                end_t = end_t + _translation_delta(action)
+            # static: no change
+
+        # Interpolate across frames: scale each contribution by alpha and compose.
         for local_idx in range(n):
             alpha = 1.0 if n == 1 else float(local_idx) / float(n - 1)
-            if action.kind in {"yaw", "pitch", "roll"}:
-                step_deg = _signed_rotation_degrees(action) * alpha
-                c2w[out_idx, :3, :3] = start_r @ _rotation_matrix(action.kind, step_deg)
-                c2w[out_idx, :3, 3] = start_t
-            else:
-                c2w[out_idx, :3, :3] = start_r
-                c2w[out_idx, :3, 3] = start_t + (end_t - start_t) * alpha
+
+            frame_r = start_r.copy()
+            for action in seg:
+                if action.kind in {"yaw", "pitch", "roll"}:
+                    frame_r = frame_r @ _rotation_matrix(
+                        action.kind, _signed_rotation_degrees(action) * alpha
+                    )
+
+            frame_t = start_t.copy()
+            for action in seg:
+                if action.kind in {"pan", "dolly", "crane"}:
+                    frame_t = frame_t + _translation_delta(action) * alpha
+
+            c2w[out_idx, :3, :3] = frame_r
+            c2w[out_idx, :3, 3] = frame_t
             out_idx += 1
+
         current_r, current_t = end_r, end_t
 
     k = default_intrinsics(width, height) if intrinsics is None else np.asarray(intrinsics, dtype=np.float32)

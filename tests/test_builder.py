@@ -145,3 +145,72 @@ def test_resample_identity_when_same_count():
     traj = build_camera_trajectory("static@30", width=W, height=H)
     same = traj.resample(30)
     assert same is traj
+
+
+# ---------------------------------------------------------------------------
+# Compound / simultaneous: rotation AND translation in the same frame window.
+# ---------------------------------------------------------------------------
+
+def test_compound_yaw_dolly_shape():
+    traj = build_camera_trajectory("yaw:left:60+dolly:forward:1@40", width=W, height=H)
+    assert traj.c2w.shape == (40, 4, 4)
+
+
+def test_compound_yaw_dolly_first_frame_identity():
+    traj = build_camera_trajectory("yaw:left:60+dolly:forward:1@40", width=W, height=H)
+    np.testing.assert_allclose(traj.c2w[0], np.eye(4), atol=1e-5)
+
+
+def test_compound_has_both_rotation_and_translation():
+    """Last frame of a yaw+dolly segment must have non-identity rotation AND non-zero translation."""
+    traj = build_camera_trajectory("yaw:left:60+dolly:forward:1@40", width=W, height=H)
+    last = traj.c2w[-1]
+    # Rotation part is not identity (yaw happened)
+    assert not np.allclose(last[:3, :3], np.eye(3), atol=1e-3), "rotation should be non-identity"
+    # Translation is non-zero (dolly happened)
+    assert np.linalg.norm(last[:3, 3]) > 1e-3, "translation should be non-zero"
+
+
+def test_compound_pure_rotation_only_no_translation():
+    """A compound with only rotations must have zero translation at all frames."""
+    traj = build_camera_trajectory("yaw:left:30+pitch:down:15@40", width=W, height=H)
+    for i in range(traj.c2w.shape[0]):
+        np.testing.assert_allclose(traj.c2w[i, :3, 3], np.zeros(3), atol=1e-5,
+                                   err_msg=f"translation not zero at frame {i}")
+
+
+def test_compound_pure_translation_only_no_rotation():
+    """A compound with only translations must have identity rotation at all frames."""
+    traj = build_camera_trajectory("pan:left:0.3+dolly:forward:1@40", width=W, height=H)
+    for i in range(traj.c2w.shape[0]):
+        np.testing.assert_allclose(traj.c2w[i, :3, :3], np.eye(3), atol=1e-5,
+                                   err_msg=f"rotation not identity at frame {i}")
+
+
+def test_compound_arc_go_return_shape():
+    from wrcam.presets import arc_LR
+
+    script = arc_LR(peak_deg=60, dolly_amount=1.0, frames=81)
+    traj = build_camera_trajectory(script, width=W, height=H)
+    assert traj.c2w.shape == (81, 4, 4)
+
+
+def test_compound_arc_ends_near_start():
+    """Arc go-return should bring camera close to identity pose at the end."""
+    from wrcam.presets import arc_LR
+
+    traj = build_camera_trajectory(arc_LR(peak_deg=60, dolly_amount=1.0, frames=81), width=W, height=H)
+    # Translation should be close to zero at end (go-return cancels out)
+    final_t = traj.c2w[-1, :3, 3]
+    assert np.linalg.norm(final_t) < 0.2, f"expected near-zero final translation, got {final_t}"
+
+
+def test_compound_segment_api_matches_string():
+    """segment() API must produce the same trajectory as the equivalent + string."""
+    from wrcam.actions import CameraScript
+
+    script_py = CameraScript().segment(40, yaw_left=60, dolly_forward=1.0)
+    script_str = "yaw:left:60+dolly:forward:1@40"
+    traj_py = build_camera_trajectory(script_py, width=W, height=H)
+    traj_str = build_camera_trajectory(script_str, width=W, height=H)
+    np.testing.assert_allclose(traj_py.c2w, traj_str.c2w, atol=1e-6)
