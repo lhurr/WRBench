@@ -117,6 +117,29 @@
     "sum_preprocess_seconds": 4.637986421585083e-06
   },
   {
+    "denominator_rows": 1,
+    "generated_rows": 1,
+    "generation_seconds_per_output_second": 863.3628823487511,
+    "gpu_seconds_per_output_second": 1726.7257646975022,
+    "inference_seconds_per_output_second": 863.3503784019866,
+    "model": "hunyuan-game-craft",
+    "peak_memory_mib_max": 77386.0,
+    "peak_memory_mib_sum_max": 77389.0,
+    "preprocess_seconds_per_output_second": 0.012503946764451084,
+    "profile": "yaw60",
+    "rows_total": 1,
+    "stage_unavailable_rows": 0,
+    "status_counts": {
+      "generated": 1
+    },
+    "sum_benchmark_generation_seconds": 9117.112037602812,
+    "sum_benchmark_gpu_seconds": 18234.224075205624,
+    "sum_inference_seconds": 9116.97999592498,
+    "sum_model_load_seconds": 47.11562944576144,
+    "sum_output_video_seconds": 10.56,
+    "sum_preprocess_seconds": 0.13204167783260345
+  },
+  {
     "denominator_rows": 0,
     "generated_rows": 0,
     "generation_seconds_per_output_second": null,

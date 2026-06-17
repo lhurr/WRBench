@@ -68,8 +68,8 @@ Profiling is **stdlib-only** plus optional `nvidia-smi` on PATH for GPU sampling
 
 ## Published cost table (2026-06-17)
 
-Full-model resource profile summary (17 ACTIVE smoke models with generated rows; host
-`10.40.1.28` + manual shard reruns; `hunyuan-game-craft` pending dedicated run):
+Full-model resource profile summary (**18** ACTIVE smoke models with generated rows at
+time of publication; includes `hunyuan-game-craft` yaw60 re-profiled with stage spans):
 
 - [resource_profile_summary.all.md](data/resource_profile_summary.all.md)
 - [resource_profile_summary.all.json](data/resource_profile_summary.all.json)
@@ -77,6 +77,11 @@ Full-model resource profile summary (17 ACTIVE smoke models with generated rows;
 Headline metric: `gpu_seconds_per_output_second` (preprocess+inference only; model load
 reported separately). Rows with `generation_status != generated` are excluded from the
 denominator.
+
+**Single-sample caveat:** each model/profile row reflects one smoke-task run (typically
+one scene × two yaw directions). Treat cross-model ordering as indicative, not a rigorous
+benchmark. `gpu_seconds_per_output_second` multiplies benchmark wall time by `gpu_width`
+(GPUs visible to the job via `CUDA_VISIBLE_DEVICES`).
 
 **Out of scope for v1 cost table:** `sana-wm`, `minwm-hy-action2v`, `matrix-game-2`
 (no smoke-task harness yet); `hunyuanworld-voyager` (research-only); `hyworld-worldgen`

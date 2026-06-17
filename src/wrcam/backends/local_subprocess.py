@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from wrcam.backends.base import GenerationBackend, GenerationRequest, GenerationResult
-from wrcam.backends.launchers.easyanimate import build_easyanimate_command
+from wrcam.backends.launchers.easyanimate import build_easyanimate_command, easyanimate_expected_output
 from wrcam.backends.launchers.spatia import build_spatia_command
 from wrcam.registry import canonical_model_key, input_kind, model_record
 from wrcam.runtime import ModelRuntime, RuntimeConfig
@@ -63,18 +63,18 @@ class LocalSubprocessBackend:
         node = self._runtime.model(key)
         assert node is not None
         payload_dict = dict(request.payload.payload)
-        output_path = Path(request.output_path)
+        output_path = Path(request.output_path).resolve()
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
         try:
             if key == "easyanimate-v51-camera":
                 if not request.image_path:
                     return GenerationResult(success=False, message="easyanimate requires image_path")
-                cmd, cwd, env = build_easyanimate_command(
+                cmd, cwd, env, _expected_output = build_easyanimate_command(
                     model=key,
                     payload=payload_dict,
                     runtime=node,
-                    image_path=Path(request.image_path),
+                    image_path=Path(request.image_path).resolve(),
                     prompt=request.prompt,
                     output_path=output_path,
                 )
@@ -86,7 +86,7 @@ class LocalSubprocessBackend:
                     model=key,
                     payload=payload_dict,
                     runtime=node,
-                    source_video_path=Path(request.source_video_path),
+                    source_video_path=Path(request.source_video_path).resolve(),
                     prompt=request.prompt,
                     output_path=output_path,
                     width=record.default_width,
@@ -113,7 +113,17 @@ class LocalSubprocessBackend:
                 output_path=output_path if output_path.is_file() else None,
                 message=f"subprocess failed (exit {proc.returncode}): {tail}",
             )
-        if not output_path.is_file():
+
+        produced = output_path
+        if key == "easyanimate-v51-camera":
+            produced = easyanimate_expected_output(output_path.parent)
+            if produced.is_file() and produced != output_path:
+                if output_path.is_file():
+                    output_path.unlink()
+                produced.replace(output_path)
+            produced = output_path
+
+        if not produced.is_file():
             return GenerationResult(
                 success=False,
                 message=f"subprocess exited 0 but output missing: {output_path}",

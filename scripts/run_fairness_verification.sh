@@ -5,13 +5,15 @@ set -euo pipefail
 
 CONFIG="${WRCAM_FAIRNESS_CONFIG:-}"
 WRBENCHLIB="${WRBENCHLIB_ROOT:-}"
-HOST="${WRCAM_SSH_HOST:-10.40.1.28}"
-PORT="${WRCAM_SSH_PORT:-6586}"
+HOST="${WRCAM_SSH_HOST:-}"
+PORT="${WRCAM_SSH_PORT:-22}"
+REMOTE_REPO="${WRBENCHLIB_REMOTE_REPO:-}"
+REMOTE_OUT="${WRCAM_FAIRNESS_REMOTE_OUT:-}"
 OUT="${WRCAM_FAIRNESS_OUT:-.artifacts/fairness_verification}"
 
 if [[ -z "$CONFIG" ]]; then
-  if [[ -f "../WRBench/WRBenchLib/config/camera_calibration_acceptance.json" ]]; then
-    CONFIG="../WRBench/WRBenchLib/config/camera_calibration_acceptance.json"
+  if [[ -n "$WRBENCHLIB" && -f "$WRBENCHLIB/config/camera_calibration_acceptance.json" ]]; then
+    CONFIG="$WRBENCHLIB/config/camera_calibration_acceptance.json"
   elif [[ -f "config/camera_calibration_acceptance.json" ]]; then
     CONFIG="config/camera_calibration_acceptance.json"
   else
@@ -36,9 +38,13 @@ if [[ -n "$WRBENCHLIB" && -d "$WRBENCHLIB" ]]; then
     --phase report \
     --out-dir "$(pwd)/$OUT"
 else
-  REMOTE_OUT="/media/datasets/OminiEWM_Data/tmp/ljp/OoVMetric/workplace/outputs/camera_calibration_acceptance_fairness_20260617"
+  if [[ -z "$HOST" || -z "$REMOTE_REPO" || -z "$REMOTE_OUT" ]]; then
+    echo "Remote mode requires WRCAM_SSH_HOST, WRBENCHLIB_REMOTE_REPO, and WRCAM_FAIRNESS_REMOTE_OUT"
+    echo "Or set WRBENCHLIB_ROOT to a local WRBenchLib checkout."
+    exit 1
+  fi
   ssh -o BatchMode=yes -p "$PORT" "root@${HOST}" \
-    "cd /media/datasets/OminiEWM_Data/tmp/ljp/WRBenchLib && \
+    "cd ${REMOTE_REPO} && \
      python3 scripts/calibration/run_calibration_batch.py \
        --config config/camera_calibration_acceptance.json \
        --phase baseline --skip-d2 --skip-vggt \

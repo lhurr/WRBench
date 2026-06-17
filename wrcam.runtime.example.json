@@ -8,7 +8,10 @@
       "python_bin": "/path/to/easyanimate/venv/bin/python",
       "repo_root": "/path/to/EasyAnimate",
       "model_path": "/path/to/easyanimate/checkpoints",
-      "gpu_id": 0
+      "gpu_id": 0,
+      "extra_paths": {
+        "enable_teacache": "false"
+      }
     },
     "spatia": {
       "python_bin": "/path/to/spatia/venv/bin/python",

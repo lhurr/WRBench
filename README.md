@@ -2,7 +2,7 @@
 
 **Unified camera control for video-generation / world models — out of the box.**
 
-`wrcam` lets you drive any supported video-generation model with the same `kind:direction:value@frames` grammar. You describe the camera motion once; wrcam compiles it into each model's native control payload and writes a set of auditable sidecars alongside the output path. By default it runs in **dry-run mode**: the payload is compiled and sidecars are written without invoking any model weights or GPU. Real video generation is delegated to each model's own environment (planned backends).
+`wrcam` lets you drive any supported video-generation model with the same `kind:direction:value@frames` grammar. You describe the camera motion once; wrcam compiles it into each model's native control payload and writes a set of auditable sidecars alongside the output path. By default it runs in **dry-run mode**: the payload is compiled and sidecars are written without invoking any model weights or GPU. Real video generation is available via **`LocalSubprocessBackend`** for reference models (`easyanimate-v51-camera`, `spatia`) when `wrcam.runtime.json` is configured ([docs/backends/README.md](docs/backends/README.md)).
 
 ---
 
