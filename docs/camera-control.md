@@ -105,11 +105,12 @@ The camera yaws 60° left across 40 frames, then yaws 60° right across 41 frame
 
 ```python
 import wrbench
+from wrbench.datasets import natural25_first_frame_path
 
 result = wrbench.compile_camera(
     model="wan22-fun-5b-cam",
     camera="yaw:left:60@40,yaw:right:60@41",
-    image="first.png",
+    image=natural25_first_frame_path("bedroom_cat_bed_jump"),
     out="out.mp4",
 )
 ```
@@ -126,7 +127,7 @@ The camera orbits leftward around a subject while approaching it. Using the buil
 result = wrbench.compile_camera(
     model="wan22-fun-5b-cam",
     camera=wrbench.presets.arc_LR(peak_deg=60, dolly_amount=1.0),
-    image="first.png",
+    image=natural25_first_frame_path("bedroom_cat_bed_jump"),
     out="out.mp4",
 )
 ```
@@ -168,7 +169,7 @@ script = wrbench.presets.sweep("yaw", "left", 37, frames=49)
 result = wrbench.compile_camera(
     model="wan22-fun-5b-cam",
     camera=script,
-    image="first.png",
+    image=natural25_first_frame_path("bedroom_cat_bed_jump"),
     out="out.mp4",
 )
 ```

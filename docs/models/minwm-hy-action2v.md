@@ -12,14 +12,22 @@
 ## Dry-run compile (out of the box)
 
 ```bash
-wrbench generate --model minwm-hy-action2v --camera preset:yaw_LR --image first.png --out out/minwm-hy-action2v.mp4
+IMAGE="$(python - <<'PY2'
+from wrbench.datasets import natural25_first_frame_path
+print(natural25_first_frame_path("bedroom_cat_bed_jump"))
+PY2
+)"
+
+wrbench generate --model minwm-hy-action2v --camera preset:yaw_LR --image "$IMAGE" --out out/minwm-hy-action2v.mp4
 ```
 
 ## Python
 
 ```python
 import wrbench
-wrbench.compile_camera(model="minwm-hy-action2v", camera="yaw:left:60@40,yaw:right:60@41", image='first.png', out="out/minwm-hy-action2v.mp4")
+from wrbench.datasets import natural25_first_frame_path
+
+wrbench.compile_camera(model="minwm-hy-action2v", camera="yaw:left:60@40,yaw:right:60@41", image=natural25_first_frame_path("bedroom_cat_bed_jump"), out="out/minwm-hy-action2v.mp4")
 ```
 
 ## Real generation

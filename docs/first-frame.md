@@ -1,8 +1,22 @@
 # First-frame generation
 
-`wrbench.firstframe` turns `t2i_scene` captions into PNG first frames for TI2V models.
+WRBench ships released Natural-25 PNG first frames and also provides
+`wrbench.firstframe` for regenerating frames from `t2i_scene` captions.
 
 ## Quick start
+
+Use the bundled Natural-25 first frames:
+
+```python
+from wrbench.datasets import natural25_first_frame_path, natural25_first_frames_manifest_path
+
+image = natural25_first_frame_path("bedroom_cat_bed_jump")
+manifest = natural25_first_frames_manifest_path()
+print(image)
+print(manifest)
+```
+
+Generate your own first frames:
 
 ```bash
 # Mock provider (no API key, writes 1×1 PNG — good for dry-run)
@@ -30,11 +44,12 @@ first_frames/
 
 ```python
 import wrbench
+from wrbench.datasets import natural25_first_frame_path
 
 wrbench.compile_camera(
     model="wan22-fun-5b-cam",
     camera="preset:yaw_LR",
-    image="first_frames/bedroom_cat.png",
+    image=natural25_first_frame_path("bedroom_cat_bed_jump"),
     out="out.mp4",
     prompt="Your ti2v_prompt here",
 )

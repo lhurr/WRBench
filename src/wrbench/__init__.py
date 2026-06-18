@@ -3,14 +3,15 @@
 Quickstart::
 
     import wrbench
+    from wrbench.datasets import natural25_first_frame_path
 
     # Preset combination
     wrbench.compile_camera(model="wan22-fun-5b-cam", camera="yaw:left:60@40,yaw:right:60@41",
-                         image="first.png", out="out.mp4")
+                            image=natural25_first_frame_path("bedroom_cat_bed_jump"), out="out.mp4")
 
     # Arbitrary angle, near-per-frame
     script = wrbench.presets.sweep("yaw", "left", 37, frames=49)
-    wrbench.compile_camera(model="wan22-fun-5b-cam", camera=script, image="first.png", out="out.mp4")
+    wrbench.compile_camera(model="wan22-fun-5b-cam", camera=script, image=natural25_first_frame_path("bedroom_cat_bed_jump"), out="out.mp4")
 
 By default this compiles the model-native payload and writes auditable sidecars
 without running any heavy model (dry-run). See ``wrbench.backends`` for real

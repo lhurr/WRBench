@@ -55,9 +55,9 @@ The evaluation uses the **Natural-25** scene/event grid: 25 scene types × 4 eve
 
 ## Benchmark Results
 
-Results for 23 models on the WRBench diagnostic profile (9,600+ generated videos, 2,073 re-observation-supported rows for D5/D6). Full CSV at `src/wrbench/data/results/wrbench_23model_results.csv`.
+Results for 23 models on the WRBench diagnostic profile (9,600 generated videos, 2,073 re-observation-supported rows for D5/D6). Full CSV at `src/wrbench/data/results/wrbench_23model_results.csv`.
 
-> **D5/D6 are only scored when re-observation support applies** (`gate_applicable_rate` ≥ 0.10). Models without a D1-CamPrec score use API prompt-camera control only.
+> **D5/D6 are scored on shared judgeable re-observation rows**: the model must bring the relevant content back into frame before returned spatial or event-state consistency can be checked. Models without a D1-CamPrec score use API prompt-camera control only.
 
 <details open>
 <summary><b>Camera-trained and video-to-video models</b></summary>
@@ -126,23 +126,30 @@ For real generation and evaluation, configure backends in `wrbench.runtime.json`
 
 ## Quick start — compile (no GPU)
 
-Describe camera motion once with the `kind:direction:value@frames` grammar; wrbench compiles it into each model's native control format and writes auditable sidecars.
+Describe camera motion once with the `kind:direction:value@frames` grammar; wrbench compiles it into each model's native control format and writes auditable sidecars. Natural-25 first frames are bundled, so the example does not require generating an image first.
 
 ```python
 import wrbench
+from wrbench.datasets import natural25_first_frame_path
 
 result = wrbench.compile_camera(
     model="wan22-fun-5b-cam",
     camera="yaw:left:60@40,yaw:right:60@41",  # look left 60° for 40 frames, then right
-    image="first.png",
+    image=natural25_first_frame_path("bedroom_cat_bed_jump"),
     out="out.mp4",
 )
 print(result["artifacts"])  # .target_c2w.npy, .camera_trajectory.json, .payload.json, ...
 ```
 
 ```bash
+IMAGE="$(python - <<'PY'
+from wrbench.datasets import natural25_first_frame_path
+print(natural25_first_frame_path("bedroom_cat_bed_jump"))
+PY
+)"
+
 # dry-run (no GPU): inspect compiled payload
-wrbench generate --model wan22-fun-5b-cam --camera preset:yaw_LR --image first.png --out out.mp4
+wrbench generate --model wan22-fun-5b-cam --camera preset:yaw_LR --image "$IMAGE" --out out.mp4
 
 # inspect all presets and models
 wrbench presets
@@ -185,13 +192,23 @@ wrbench eval contract
 The Natural-25 scene/event grid (25 scenes × 4 event categories) is bundled in the package:
 
 ```python
-from wrbench.datasets import build_natural25_candidates, load_natural25_families
+from wrbench.datasets import (
+    build_natural25_candidates,
+    load_jsonl,
+    load_natural25_families,
+    natural25_first_frame_path,
+    natural25_variants_path,
+)
 from wrbench.prompts.task import generate_variants_deterministic
 
 variants = generate_variants_deterministic(
     build_natural25_candidates(),
     load_natural25_families(),
 )
+
+# Or load the pre-generated 400-row prompt set directly:
+variants = list(load_jsonl(natural25_variants_path()))
+first_frame = natural25_first_frame_path("bedroom_cat_bed_jump")
 ```
 
 ```bash
@@ -258,6 +275,8 @@ Two files + one import line. See [docs/adding-a-model.md](docs/adding-a-model.md
 | Artifact | Location |
 |----------|----------|
 | Natural-25 scene/event prompts | `src/wrbench/data/natural25/` (bundled in package) |
+| Natural-25 pre-generated TI2V prompt variants | `src/wrbench/data/natural25/variants.jsonl` |
+| Natural-25 released first frames | `src/wrbench/data/natural25/first_frames/` |
 | Published 23-model results | `src/wrbench/data/results/wrbench_23model_results.{csv,json}` |
 | Human annotation verdicts (2,547) | Separate release — see [project page](https://jinplu.github.io/WRBench/) |
 

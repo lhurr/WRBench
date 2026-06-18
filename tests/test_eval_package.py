@@ -227,19 +227,32 @@ def test_main_table_includes_viewpoint_and_reobservation() -> None:
 
 
 def test_natural25_dataset_paths_exist() -> None:
+    import json
+
     from wrbench.datasets import (
         build_natural25_candidates,
         load_natural25_families,
+        load_jsonl,
+        natural25_first_frame_path,
+        natural25_first_frames_manifest_path,
         natural25_families_path,
+        natural25_variants_path,
         published_results_csv,
     )
 
     assert natural25_families_path().is_file()
+    assert natural25_variants_path().is_file()
+    assert natural25_first_frames_manifest_path().is_file()
     assert published_results_csv().is_file()
     families = load_natural25_families()
     candidates = build_natural25_candidates()
     assert len(families) == 25
     assert len(candidates) == 25
+    variants = list(load_jsonl(natural25_variants_path()))
+    assert len(variants) == 400
+    manifest = json.loads(natural25_first_frames_manifest_path().read_text(encoding="utf-8"))
+    assert {row["family_id"] for row in manifest} == set(families)
+    assert all(natural25_first_frame_path(fid).is_file() for fid in families)
 
 
 def test_eval_run_cli_help() -> None:

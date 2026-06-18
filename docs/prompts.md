@@ -42,6 +42,17 @@ System prompt templates live in `src/wrbench/prompts/templates/`.
 
 ## Task prompt (TI2V variants)
 
+WRBench ships a ready-to-use Natural-25 prompt set:
+
+```python
+from wrbench.datasets import natural25_variants_path
+from wrbench.prompts.task import load_jsonl
+
+variants = list(load_jsonl(natural25_variants_path()))
+print(len(variants))  # 400 = 25 families × 4 event tiers × 4 camera gaps
+print(variants[0]["ti2v_prompt"])
+```
+
 **Deterministic path** (no LLM): rebuild Natural-25 style variants from bundled data or custom inputs.
 
 ```bash

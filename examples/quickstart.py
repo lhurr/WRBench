@@ -19,6 +19,7 @@ import tempfile
 from pathlib import Path
 
 import wrbench
+from wrbench.datasets import natural25_first_frame_path
 
 
 def _section(title: str) -> None:
@@ -52,6 +53,7 @@ if deferred_only:
 _section("(b) Compile preset yaw_LR → wan22-fun-5b-cam")
 
 DEMO_MODEL = "wan22-fun-5b-cam"
+DEMO_IMAGE = str(natural25_first_frame_path("bedroom_cat_bed_jump"))
 
 with tempfile.TemporaryDirectory(prefix="wrbench_quickstart_") as tmpdir:
     out_path = str(Path(tmpdir) / "yaw_lr_demo.mp4")
@@ -64,7 +66,7 @@ with tempfile.TemporaryDirectory(prefix="wrbench_quickstart_") as tmpdir:
         model=DEMO_MODEL,
         camera=preset_script,
         out=out_path,
-        image="first.png",    # dry-run: file is not read
+        image=DEMO_IMAGE,
         dry_run=True,
     )
 
@@ -93,7 +95,7 @@ with tempfile.TemporaryDirectory(prefix="wrbench_quickstart_") as tmpdir:
         model=DEMO_MODEL,
         camera=sweep_script,
         out=out_path_c,
-        image="first.png",
+        image=DEMO_IMAGE,
         dry_run=True,
     )
 

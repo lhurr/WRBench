@@ -73,10 +73,12 @@ def arc_LR(
 
     Example::
 
+        from wrbench.datasets import natural25_first_frame_path
+
         result = wrbench.compile_camera(
             model="wan22-fun-5b-cam",
             camera=wrbench.presets.arc_LR(peak_deg=40, dolly_amount=0.8),
-            image="first.png",
+            image=natural25_first_frame_path("bedroom_cat_bed_jump"),
             out="out.mp4",
         )
     """

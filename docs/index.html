@@ -1067,7 +1067,7 @@
     table {
       width: 100%;
       border-collapse: collapse;
-      min-width: 1040px;
+      min-width: 1120px;
       font-family: var(--sans);
       font-size: 0.86rem;
       line-height: 1.45;
@@ -1494,12 +1494,12 @@
       color: var(--ink);
     }
 
-    /* Half-column split: chart on one side, analysis on the other */
+    /* Paper figure first, interpretation below */
     .split {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-      gap: 34px;
-      align-items: center;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 18px;
+      align-items: start;
       margin-top: 30px;
       padding-top: 30px;
       border-top: 1px dashed var(--line-strong);
@@ -1510,12 +1510,9 @@
       padding-top: 0;
     }
 
-    .split--flip .split-media {
-      order: 2;
-    }
-
     .split-media {
       position: relative;
+      order: 1;
     }
 
     .split-media .figure-frame {
@@ -1523,6 +1520,7 @@
     }
 
     .split-copy {
+      order: 2;
       padding: 22px 24px;
       background: #fff;
       border: 1px solid rgba(124, 58, 237, 0.12);
@@ -1828,8 +1826,8 @@
 
     .forensic-row {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
-      gap: 24px;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 16px;
       align-items: start;
       padding: 20px;
       background: var(--panel);
@@ -1839,13 +1837,15 @@
     }
 
     .forensic-row:nth-child(even) {
-      grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+      grid-template-columns: minmax(0, 1fr);
     }
 
+    .forensic-row .forensic-copy,
     .forensic-row:nth-child(even) .forensic-copy {
       order: 2;
     }
 
+    .forensic-row .forensic-thumb,
     .forensic-row:nth-child(even) .forensic-thumb {
       order: 1;
     }
@@ -1880,19 +1880,21 @@
 
     .stage-row {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
-      gap: 32px;
-      align-items: center;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 18px;
+      align-items: start;
     }
 
     .stage-row.reverse {
-      grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+      grid-template-columns: minmax(0, 1fr);
     }
 
+    .stage-row .stage-row-copy,
     .stage-row.reverse .stage-row-copy {
       order: 2;
     }
 
+    .stage-row .stage-row-fig,
     .stage-row.reverse .stage-row-fig {
       order: 1;
     }
@@ -2085,25 +2087,11 @@
         grid-template-columns: 1fr;
       }
 
-      .forensic-row:nth-child(even) .forensic-copy,
-      .forensic-row:nth-child(even) .forensic-thumb {
-        order: unset;
-      }
-
       .split,
       .stage-row,
       .stage-row.reverse {
         grid-template-columns: 1fr;
         gap: 22px;
-      }
-
-      .stage-row.reverse .stage-row-copy,
-      .stage-row.reverse .stage-row-fig {
-        order: unset;
-      }
-
-      .split--flip .split-media {
-        order: 0;
       }
     }
 
@@ -2155,7 +2143,7 @@
       <a href="#insight">The gap</a>
       <a href="#findings">Findings</a>
       <a href="#positioning">Positioning</a>
-      <a href="#results">Leaderboard</a>
+      <a href="#results">Diagnostic Profile</a>
       <a href="#analysis">Evidence</a>
       <a href="#videos">Cases</a>
       <a href="#method">Method</a>
@@ -2169,11 +2157,11 @@
         <div class="hero-copy">
           <p class="hero-badge">Diagnostic benchmark for dynamic world-state evaluation under viewpoint changes</p>
           <h1>Current World Models Lack a Persistent State Core</h1>
-          <p class="hero-subtitle-pill">WRBench treats a camera move as an <strong>intervention on
-              observability</strong>:
-            it fixes a scene and an event, then turns the camera away while something changes out of view.</p>
-          <p class="hero-tagline">It tests whether a model keeps an <strong>internal world state evolving, decoupled
-              from observation</strong> — the room may return, while the event target resets to where it was left.</p>
+          <p class="hero-subtitle-pill">WRBench treats camera motion as an <strong>intervention on
+              observability</strong>: the scene is fixed, the event is set in motion, and the camera decides what can be
+            seen.</p>
+          <p class="hero-tagline">The test is endpoint binding: does the target keep the event outcome while unobserved,
+            or does it merely reappear when the camera returns?</p>
           <div class="btn-group">
             <a class="btn primary" href="iclr2026_conference.pdf">Paper PDF</a>
             <a class="btn" href="https://github.com/JinPLu/WRBench" target="_blank" rel="noopener">Code</a>
@@ -2184,9 +2172,9 @@
         <aside class="hero-summary-card">
           <span class="hero-summary-label">Preservation–access–returned-consistency gap</span>
           <div class="hero-summary-headline">23 / 23</div>
-          <p class="hero-summary-sub"><strong>All 23 models</strong> hold the observed world as a
-            <strong>tracking shot</strong> — on return, the target resumes where it was abandoned instead of advancing
-            while the camera looked away.
+          <p class="hero-summary-sub">Across the evaluated <strong>23 models</strong>, visible quality and access can
+            improve while <strong>returned-state correctness</strong> remains separate; current systems behave like
+            tracking shots rather than persistent world states.
           </p>
           <div class="hero-stats-grid">
             <div class="stat">
@@ -2240,26 +2228,25 @@
         <div class="manifesto reveal">
           <article class="manifesto-step stage-visible">
             <span class="step-chip"><span class="step-num">Stage 01</span><span class="step-name">Visible</span></span>
-            <strong>Did the camera execute <em class="step-em">the interaction?</em></strong>
-            <p>Did the requested viewpoint change actually happen, creating a period when the target leaves observation?
-              Without that intervention, the hidden-state test has not been posed.
+            <strong>Did the viewpoint intervention <em class="step-em">happen?</em></strong>
+            <p>Requested-camera precision and prompt-camera alignment decide whether the camera actually creates the
+              observability change WRBench asks for.
             </p>
             <div class="step-foot"><span class="step-foot-chip mint">control before memory</span></div>
           </article>
           <article class="manifesto-step stage-access">
             <span class="step-chip"><span class="step-num">Stage 02</span><span class="step-name">Access</span></span>
-            <strong>Did the scene stay <em class="step-em">continuous?</em></strong>
-            <p>While evidence is visible, does the scene remain identifiable and the event readable? Clean frames and
-              plausible motion matter, but they still do <strong>not predict a correct return</strong>.
+            <strong>Is visible evidence <em class="step-em">readable?</em></strong>
+            <p>Visual integrity plus visible spatial/state consistency show whether the observed scene and event are
+              coherent before the hidden-state question is scored.
             </p>
             <div class="step-foot"><span class="step-foot-chip teal">visible evidence</span></div>
           </article>
           <article class="manifesto-step stage-return">
             <span class="step-chip"><span class="step-num">Stage 03</span><span class="step-name">Return</span></span>
-            <strong>Did the target advance <em class="step-em">while unseen?</em></strong>
-            <p>When the camera returns, is the cat on the bed? <strong>All 23 models behave like tracking shots</strong>,
-              resuming the target where it was abandoned rather than binding the returned state to the event set in
-              motion.</p>
+            <strong>Is the returned endpoint <em class="step-em">bound?</em></strong>
+            <p>Re-observation support asks whether the target returns in judgeable form; returned spatial/state
+              consistency asks whether it preserves the event endpoint.</p>
             <div class="step-foot"><span class="step-foot-chip rose">returned endpoint</span></div>
           </article>
         </div>
@@ -2341,25 +2328,22 @@
           <span><span class="bench-cell no">✗</span> not a stated target</span>
         </div>
         <div class="callout reveal"><strong>State robustness</strong> = viewpoint/visibility-aware state evidence with
-          separate control, re-observation, and error attribution. <strong>Pathway diagnostics</strong> = metric-,
-          condition-type-, and feature-readout diagnostics. WRBench is the only row that targets both.</div>
+          separate control, re-observation, and error attribution. <strong>Evolution Consistency</strong> asks whether
+          unobserved event outcomes remain bound on return. <strong>Pathway diagnostics</strong> = metric-,
+          condition-type-, and feature-readout diagnostics. WRBench is the only row that targets all three.</div>
       </div>
     </section>
 
     <section id="results" class="content-section">
       <div class="container">
         <div class="section-header reveal" data-num="04">
-          <p class="section-label">Leaderboard</p>
-          <h2 class="section-title">23 models — and no single winner.</h2>
+          <p class="section-label">Diagnostic profile</p>
+          <h2 class="section-title">23 models — separate preservation, access, and return.</h2>
         </div>
-        <p class="section-lead reveal">WRBench reports a <strong>diagnostic profile</strong>, not one winning score.
-          Read
-          the columns as the three stages from the gap: <strong>Vis.</strong> = visible consistency while the target
-          stays
-          on screen; <strong>Reobs. support</strong> = fraction of outputs with judgeable hidden-and-returned evidence
-          (whether a return test is possible); <strong>Ret.</strong> = returned spatial/state consistency when the
-          camera
-          comes back — averaged only over those judgeable clips (daggers mark sparse support). Click any header to sort.
+        <p class="section-lead reveal">WRBench reports a <strong>diagnostic profile</strong>, not a scalar leaderboard.
+          The profile separates control execution, visible evidence, re-observation support, and returned
+          spatial/state consistency. Best/second marks are read within each viewpoint condition type, as in the paper.
+          Click any header to sort.
         </p>
         <div class="metrics-block reveal">
           <article class="metric-guide">
@@ -2386,9 +2370,9 @@
         </div>
         <div class="table-wrap reveal" id="results-table-wrap"></div>
         <p class="table-note reveal">† Ret. spatial and Ret. state are conditional means over the judgeable
-          re-observation
-          subset. Italic returned scores mark low re-observation support (fewer than 10 judgeable clips or support below
-          10%). Cam Prec. is not applicable to prompt-only API rows.</p>
+          re-observation subset. Avg. is the paper's mean of Cam Align., Integ., Vis. spatial/state, and Ret.
+          spatial/state, excluding re-observation support. Italic returned scores mark low re-observation support
+          (fewer than 10 judgeable clips or support below 10%). Cam Prec. is not applicable to prompt-only API rows.</p>
         <div class="callout insight reveal">No model wins every dimension. <strong>Lingbot-World Act</strong> pairs high
           visible spatial/state scores (<span class="stat-pill">0.874 / 0.719</span>) with the weakest requested-camera
           precision (<span class="stat-pill">0.468</span>) among controllable local models. Strong visible tracking still
@@ -2403,10 +2387,10 @@
           <p class="section-label">Current diagnosis</p>
           <h2 class="section-title">Tracking shots expose the <span class="title-accent">returned-state gap.</span></h2>
         </div>
-        <p class="section-lead reveal">Read each figure as <strong>chart + plain-language meaning</strong>: a clean
-          tracking shot can bring the object back into view, but the returned state still breaks. Wan scaling
-          <strong>1.3B→14B</strong> lowers returned state <strong>0.66→0.62</strong>, while <strong>Lingbot-World
-            Act</strong> shows the visible-vs-camera split.</p>
+        <p class="section-lead reveal">The paper's diagnosis is not that one model loses a leaderboard. Visible quality
+          and re-observation access mostly decide whether the return test is posed; returned-state correctness is a
+          separate capability, and in-place state change is the hard case that scale, richer inputs, and current public
+          training signals do not close.</p>
         <div class="evidence-questions reveal">
           <article class="evidence-q">
             <span class="evidence-q-tag">Question 1 · Finding 1</span>
@@ -2456,12 +2440,12 @@
           </div>
         </div>
 
-        <div class="split split--stage2 split--flip reveal">
+        <div class="split split--stage2 reveal">
           <div class="split-media">
             <span class="figure-label">Figure · metric correlations</span>
             <div class="figure-frame">
               <img src="assets/corr-heatmap-v20260619.png"
-                alt="Versioned metric correlation heatmap for visible and returned WRBench dimensions">
+                alt="Paper metric correlation heatmap for visible and re-observed WRBench dimensions">
             </div>
             <p class="caption figure-caption-center">Figure 5. Model-level correlations among the diagnostic metrics
               (23 rows), with visible and returned consistency forming separate blocks.
@@ -2510,7 +2494,7 @@
             <div class="stage-row-fig">
               <div class="figure-frame">
                 <img src="assets/camera-bars-v20260619.png"
-                  alt="Versioned camera-condition bar chart comparing re-observation support and returned scores">
+                  alt="Paper camera-condition bar chart comparing re-observation support and re-observed scores">
               </div>
               <p class="caption figure-caption-center">Figure 6. Static hold vs. horizontal camera pan: re-observation
                 support moves, returned-state consistency does not.</p>
@@ -2542,7 +2526,7 @@
           <div class="figure-frame">
             <div class="figure-scroll">
               <img src="assets/event-factor-v20260619.png"
-                alt="Versioned event-factor boxplots under the two-by-two spatial and state design">
+                alt="Paper event-factor boxplots under the two-by-two spatial and state design">
             </div>
             <p class="caption figure-caption-center">Figure 7. Metrics under a 2×2 event design; stars mark paired Wilcoxon
               significance.</p>
@@ -2585,16 +2569,16 @@
           </ul>
           <div class="figure-grid-3">
             <div class="figure-frame">
-              <img src="assets/series-scale-v20260619.png" alt="Versioned Wan series scale diagnostics">
+              <img src="assets/series-scale-v20260619.png" alt="Paper Wan series scale diagnostics">
               <p class="caption figure-caption-center">Figure 8A · Wan scale / version diagnostics</p>
             </div>
             <div class="figure-frame">
               <img src="assets/series-increments-v20260619.png"
-                alt="Versioned Wan architecture increment diagnostics">
+                alt="Paper Wan architecture increment diagnostics">
               <p class="caption figure-caption-center">Figure 8B · Wan architecture diagnostics</p>
             </div>
             <div class="figure-frame">
-              <img src="assets/series-training-v20260619.png" alt="Versioned Wan training signal diagnostics">
+              <img src="assets/series-training-v20260619.png" alt="Paper Wan training signal diagnostics">
               <p class="caption figure-caption-center">Figure 8C · Wan training-signal diagnostics</p>
             </div>
           </div>
@@ -2637,7 +2621,8 @@
           <h2 class="section-title">How WRBench measures it.</h2>
         </div>
         <p class="section-lead reveal">The apparatus behind the numbers: <strong>Natural-25</strong> fixes scene, event,
-          and camera path; <strong>WRBenchLib</strong> records what each model actually received; six dimensions
+          and camera path; <strong>WRBenchLib, the generation-provenance layer in WRBench</strong>, records model input,
+          delivered viewpoint condition, generated video, and provenance; six dimensions
           separate
           <strong>visible consistency</strong>, <strong>re-observation support</strong>, and <strong>returned
             consistency</strong>.
@@ -2650,8 +2635,8 @@
               sit, and tip — from <strong>spatial relocation</strong> to <strong>in-place state change</strong>.</p>
           </article>
           <article class="panel accent-cyan">
-            <h3>WRBenchLib</h3>
-            <p>Maps each test record to <strong>model input</strong>, <strong>delivered viewpoint condition</strong>,
+            <h3>Generation provenance</h3>
+            <p>The WRBenchLib layer maps each test record to <strong>model input</strong>, <strong>delivered viewpoint condition</strong>,
               generated video, and <strong>provenance</strong> — so interfaces are compared on the evidence they
               actually
               received.</p>
@@ -2681,14 +2666,14 @@
               <div class="record-formula">r<sub>i</sub> = ( x<sub>i</sub><sup>0</sup>, e<sub>i</sub>, τ<sub>i</sub>,
                 ν<sub>i</sub>, π<sub>i</sub> )</div>
               <p class="analysis-text" style="margin-top:14px">In words: initial observation, event, timing, viewpoint
-                change, and prompt. <strong>WRBenchLib</strong> maps every record through a model-specific adapter:</p>
+                change, and prompt. The provenance layer maps every record through a model-specific adapter:</p>
               <div class="record-formula">z<sub>i,m</sub> = Φ<sub>m</sub>(r<sub>i</sub>) = ( input u, delivered
                 condition d,
                 video v, provenance η )</div>
               <div class="pipeline-flow">
                 <span class="pipe-node">Event–view record</span>
                 <span class="pipe-arrow">→</span>
-                <span class="pipe-node">WRBenchLib adapter</span>
+                <span class="pipe-node">Model-specific adapter</span>
                 <span class="pipe-arrow">→</span>
                 <span class="pipe-node">Generated video + provenance</span>
                 <span class="pipe-arrow">→</span>
@@ -2821,18 +2806,18 @@
     ];
 
     const benchmarkCoverage = [
-      { method: "VBench", world: "part", control: "no", visual: "yes", robust: "no", memory: "no", pathway: "no" },
-      { method: "VBench-2.0", world: "yes", control: "part", visual: "part", robust: "no", memory: "no", pathway: "no" },
-      { method: "WorldModelBench", world: "yes", control: "no", visual: "part", robust: "no", memory: "no", pathway: "no" },
-      { method: "WorldScore", world: "yes", control: "part", visual: "yes", robust: "no", memory: "no", pathway: "no" },
-      { method: "WorldMark", world: "yes", control: "yes", visual: "yes", robust: "no", memory: "part", pathway: "no" },
-      { method: "WBench", world: "yes", control: "yes", visual: "yes", robust: "no", memory: "yes", pathway: "no" },
-      { method: "iWorld-Bench", world: "yes", control: "yes", visual: "yes", robust: "no", memory: "yes", pathway: "no" },
-      { method: "MIND", world: "yes", control: "part", visual: "yes", robust: "no", memory: "yes", pathway: "no" },
-      { method: "STEVO-Bench", world: "yes", control: "no", visual: "part", robust: "part", memory: "yes", pathway: "no" },
-      { method: "LiveWorld", world: "yes", control: "part", visual: "part", robust: "part", memory: "yes", pathway: "no" },
-      { method: "MBench", world: "yes", control: "part", visual: "no", robust: "part", memory: "yes", pathway: "no" },
-      { method: "WRBench (Ours)", world: "yes", control: "yes", visual: "yes", robust: "yes", memory: "yes", pathway: "yes", ours: true }
+      { method: "VBench", world: "part", control: "no", visual: "yes", robust: "no", evolution: "no", pathway: "no" },
+      { method: "VBench-2.0", world: "yes", control: "part", visual: "part", robust: "no", evolution: "no", pathway: "no" },
+      { method: "WorldModelBench", world: "yes", control: "no", visual: "part", robust: "no", evolution: "no", pathway: "no" },
+      { method: "WorldScore", world: "yes", control: "part", visual: "yes", robust: "no", evolution: "no", pathway: "no" },
+      { method: "WorldMark", world: "yes", control: "yes", visual: "yes", robust: "no", evolution: "no", pathway: "no" },
+      { method: "WBench", world: "yes", control: "yes", visual: "yes", robust: "no", evolution: "no", pathway: "no" },
+      { method: "iWorld-Bench", world: "yes", control: "yes", visual: "yes", robust: "no", evolution: "no", pathway: "no" },
+      { method: "MIND", world: "yes", control: "part", visual: "yes", robust: "no", evolution: "no", pathway: "no" },
+      { method: "STEVO-Bench", world: "yes", control: "no", visual: "part", robust: "part", evolution: "part", pathway: "no" },
+      { method: "LiveBench", world: "yes", control: "part", visual: "part", robust: "part", evolution: "part", pathway: "no" },
+      { method: "MBench", world: "yes", control: "part", visual: "no", robust: "part", evolution: "part", pathway: "no" },
+      { method: "WRBench (Ours)", world: "yes", control: "yes", visual: "yes", robust: "yes", evolution: "yes", pathway: "yes", ours: true }
     ];
 
     const benchmarkColumns = [
@@ -2840,7 +2825,7 @@
       { key: "control", label: "Unified<br>Control" },
       { key: "visual", label: "Visual<br>Quality" },
       { key: "robust", label: "State<br>Robustness" },
-      { key: "memory", label: "State<br>Memory" },
+      { key: "evolution", label: "Evolution<br>Consistency" },
       { key: "pathway", label: "Pathway<br>Diagnostics" }
     ];
 
@@ -2953,17 +2938,35 @@
       { key: "visSpatial", label: "Vis. spatial", pct: false },
       { key: "visState", label: "Vis. state", pct: false },
       { key: "retSpatial", label: "Ret. spatial†", pct: false, conditional: true },
-      { key: "retState", label: "Ret. state†", pct: false, conditional: true }
+      { key: "retState", label: "Ret. state†", pct: false, conditional: true },
+      { key: "avg", label: "Avg.", pct: false }
     ];
 
     let tableSort = { key: null, dir: 1 };
     let tableGrouped = true;
 
+    function diagnosticAvg(row) {
+      const vals = [row.camAlign, row.integ, row.visSpatial, row.visState, row.retSpatial, row.retState]
+        .filter((value) => value != null);
+      if (!vals.length) return null;
+      return vals.reduce((sum, value) => sum + value, 0) / vals.length;
+    }
+
+    function metricValue(row, key) {
+      return key === "avg" ? diagnosticAvg(row) : row[key];
+    }
+
     function computeRankMap() {
       const ranks = {};
       metricCols.forEach(({ key }) => {
-        const vals = [...new Set(modelResults.filter((r) => r[key] != null).map((r) => r[key]))].sort((a, b) => b - a);
-        ranks[key] = { best: vals[0], second: vals[1] };
+        ranks[key] = {};
+        groupOrder.forEach((groupId) => {
+          const vals = [...new Set(modelResults
+            .filter((r) => r.group === groupId && metricValue(r, key) != null)
+            .map((r) => metricValue(r, key)))]
+            .sort((a, b) => b - a);
+          ranks[key][groupId] = { best: vals[0], second: vals[1] };
+        });
       });
       return ranks;
     }
@@ -2983,10 +2986,10 @@
 
     function fmtCell(row, col) {
       const { key, pct, conditional } = col;
-      const value = row[key];
+      const value = metricValue(row, key);
       if (value == null) return '<td class="num dash">—</td>';
 
-      const rank = rankMap[key];
+      const rank = rankMap[key][row.group] || {};
       const cls = value === rank.best ? "best" : value === rank.second ? "second" : "";
       const heat = pct ? Math.min(100, value) : Math.round(value * 100);
       const heatCls = pct ? "heat-pct" : "heat";
@@ -3009,7 +3012,7 @@
         return rows;
       }
       rows.sort((a, b) => {
-        const av = a[key], bv = b[key];
+        const av = metricValue(a, key), bv = metricValue(b, key);
         if (av == null && bv == null) return a.model.localeCompare(b.model);
         if (av == null) return 1;
         if (bv == null) return -1;

@@ -18,10 +18,16 @@ video generation is optional and routes through a **backend**.
 3. Run:
 
 ```bash
+IMAGE="$(python - <<'PY'
+from wrbench.datasets import natural25_first_frame_path
+print(natural25_first_frame_path("bedroom_cat_bed_jump"))
+PY
+)"
+
 wrbench generate \
   --model easyanimate-v51-camera \
   --camera preset:yaw_LR \
-  --image first.png \
+  --image "$IMAGE" \
   --prompt "A living room." \
   --out out.mp4 \
   --no-dry-run
@@ -75,11 +81,12 @@ Required runtime fields per model entry in `wrbench.runtime.json`:
 
 ```python
 import wrbench
+from wrbench.datasets import natural25_first_frame_path
 
 result = wrbench.compile_camera(
     model="easyanimate-v51-camera",
     camera="preset:yaw_LR",
-    image="first.png",
+    image=natural25_first_frame_path("bedroom_cat_bed_jump"),
     out="out.mp4",
     prompt="A scene.",
     dry_run=False,  # requires wrbench.runtime.json

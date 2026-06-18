@@ -21,11 +21,26 @@ wrbench models --json
 
 ## (b) Compile the `yaw_LR` preset for `wan22-fun-5b-cam`
 
+Use one of the bundled Natural-25 first frames:
+
 ```bash
+python - <<'PY'
+from wrbench.datasets import natural25_first_frame_path
+print(natural25_first_frame_path("bedroom_cat_bed_jump"))
+PY
+```
+
+```bash
+IMAGE="$(python - <<'PY'
+from wrbench.datasets import natural25_first_frame_path
+print(natural25_first_frame_path("bedroom_cat_bed_jump"))
+PY
+)"
+
 wrbench generate \
   --model wan22-fun-5b-cam \
   --camera preset:yaw_LR \
-  --image first.png \
+  --image "$IMAGE" \
   --out /tmp/wrbench_demo/yaw_lr_demo.mp4
 
 # With custom peak angle and frame count:
@@ -34,7 +49,7 @@ wrbench generate \
   --camera preset:yaw_LR \
   --peak-deg 45 \
   --frames 81 \
-  --image first.png \
+  --image "$IMAGE" \
   --out /tmp/wrbench_demo/yaw_lr_demo.mp4
 ```
 
@@ -47,7 +62,7 @@ wrbench generate \
 wrbench generate \
   --model wan22-fun-5b-cam \
   --camera "yaw:left:37@49" \
-  --image first.png \
+  --image "$IMAGE" \
   --out /tmp/wrbench_demo/sweep_demo.mp4
 
 # Inspect / validate the script before generating:

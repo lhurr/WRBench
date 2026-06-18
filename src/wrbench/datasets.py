@@ -29,6 +29,22 @@ def natural25_scene_events_path() -> Path:
     return natural25_dir() / "scene_events_25x4.csv"
 
 
+def natural25_variants_path() -> Path:
+    return natural25_dir() / "variants.jsonl"
+
+
+def natural25_first_frames_dir() -> Path:
+    return natural25_dir() / "first_frames"
+
+
+def natural25_first_frames_manifest_path() -> Path:
+    return natural25_dir() / "first_frames_manifest.json"
+
+
+def natural25_first_frame_path(family_id: str) -> Path:
+    return natural25_first_frames_dir() / f"{family_id}.png"
+
+
 def published_results_dir() -> Path:
     return data_dir() / "results"
 

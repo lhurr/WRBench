@@ -8,11 +8,6 @@
   "source_commits_or_mtimes": {
     "data/results/wrbench_23model_results.csv": {
       "published_with": "wrbench paper-oriented release"
-    },
-    "4DWorldEvolution/analysis/wrbench_latest_main_table_summary.json": {
-      "mtime_utc": "2026-06-07T21:58:10.927324+00:00",
-      "git_commit": "fe46f93",
-      "status": "stale_superseded_input_pre_existing_worktree_modified"
     }
   },
   "aggregate_checks": {
@@ -128,9 +123,7 @@
     "D5_D6": "Post-judgeability conditional means over shared-E14 applicable rows; denominator is 2073 overall, not 9600.",
     "low_n_flag": "True when D5_n < 10 or D5_n / n_outputs < 0.10."
   },
-  "stale_inputs_superseded": [
-    "4DWorldEvolution/analysis/wrbench_latest_main_table_summary.json"
-  ],
+  "stale_inputs_superseded": [],
   "rows": [
     {
       "model_id": "gen3c",
