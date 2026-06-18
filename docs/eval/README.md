@@ -1,7 +1,7 @@
 # WRBench evaluation in WRBench
 
 WRBench ships the official **WRBench** diagnostic evaluation toolkit described in
-*World Models Need More Than Static Scene* (ICLR 2026). Evaluation is organized
+*World Models Need More Than Static Scene* (preprint). Evaluation is organized
 as six separable dimensions plus re-observation support for returned-state metrics.
 
 ## Mental model

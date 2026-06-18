@@ -2,14 +2,14 @@
 
 **Official toolkit for [WRBench](https://jinplu.github.io/WRBench/): camera-controlled generation and diagnostic evaluation of video world models.**
 
-[![Paper](https://img.shields.io/badge/Paper-ICLR%202026-b31b1b?logo=arxiv&logoColor=red)](https://arxiv.org/abs/TODO)
+[![Paper](https://img.shields.io/badge/Paper-Preprint-b31b1b?logo=arxiv&logoColor=red)](https://arxiv.org/abs/TODO)
 [![Project Page](https://img.shields.io/badge/Project-jinplu.github.io%2FWRBench-green?logo=googlechrome)](https://jinplu.github.io/WRBench/)
 [![GitHub](https://img.shields.io/github/stars/JinPLu/WRBench?style=social)](https://github.com/JinPLu/WRBench)
 
 ---
 
 > **World Models Need More Than Static Scene**  
-> *ICLR 2026*
+> *Preprint*
 
 ---
 
@@ -266,10 +266,12 @@ Two files + one import line. See [docs/adding-a-model.md](docs/adding-a-model.md
 ## Citation
 
 ```bibtex
-@inproceedings{wrbench2026,
-  title     = {World Models Need More Than Static Scene},
-  booktitle = {International Conference on Learning Representations (ICLR)},
-  year      = {2026},
+@article{wrbench2026,
+  title   = {World Models Need More Than Static Scene},
+  author  = {Jinpeng Lu and Dexu Zhu and Haoyuan Shi and Yinda Chen and Linghan Cai and Guo Tang and Jie Cao and Yong Dai},
+  year    = {2026},
+  note    = {Preprint},
+  url     = {https://github.com/JinPLu/WRBench},
 }
 ```
 
