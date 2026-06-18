@@ -1,12 +1,12 @@
-"""Tests for wrcam.registry: single-source-of-truth invariants."""
+"""Tests for wrbench.registry: single-source-of-truth invariants."""
 
 from pathlib import Path
 
 import pytest
 
-import wrcam.adapters  # ensure all adapter modules are imported and registered
-from wrcam.adapters.base import adapter_for_model, registered_model_keys
-from wrcam.registry import (
+import wrbench.adapters  # ensure all adapter modules are imported and registered
+from wrbench.adapters.base import adapter_for_model, registered_model_keys
+from wrbench.registry import (
     MODELS_DIR,
     VALID_INPUT_KINDS,
     VALID_TRANSLATION_UNITS,
@@ -32,7 +32,7 @@ def test_all_json_load():
                          ids=lambda p: p.stem)
 def test_json_loads_without_error(json_path):
     import json
-    from wrcam.registry import _parse_record
+    from wrbench.registry import _parse_record
     payload = json.loads(json_path.read_text(encoding="utf-8"))
     record = _parse_record(json_path, payload)
     assert record.key

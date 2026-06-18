@@ -1,20 +1,20 @@
 # First-frame generation
 
-`wrcam.firstframe` turns `t2i_scene` captions into PNG first frames for TI2V models.
+`wrbench.firstframe` turns `t2i_scene` captions into PNG first frames for TI2V models.
 
 ## Quick start
 
 ```bash
 # Mock provider (no API key, writes 1×1 PNG — good for dry-run)
-wrcam firstframe --out first_frames/ --family-id demo --prompt "A cat on a bed." --provider mock
+wrbench firstframe --out first_frames/ --family-id demo --prompt "A cat on a bed." --provider mock
 
 # Batch from families JSONL (uses t2i_scene field)
-wrcam firstframe --out first_frames/ --families-jsonl families.jsonl --provider mock
+wrbench firstframe --out first_frames/ --families-jsonl families.jsonl --provider mock
 
 # Real generation (DashScope)
-pip install 'wrcam[firstframe]'
+pip install 'wrbench[firstframe]'
 export DASHSCOPE_API_KEY=...
-wrcam firstframe --out first_frames/ --families-jsonl families.jsonl --provider dashscope --model wan2.7-image-pro
+wrbench firstframe --out first_frames/ --families-jsonl families.jsonl --provider dashscope --model wan2.7-image-pro
 ```
 
 Output layout:
@@ -29,9 +29,9 @@ first_frames/
 ## Use with camera compile
 
 ```python
-import wrcam
+import wrbench
 
-wrcam.compile_camera(
+wrbench.compile_camera(
     model="wan22-fun-5b-cam",
     camera="preset:yaw_LR",
     image="first_frames/bedroom_cat.png",
@@ -43,7 +43,7 @@ wrcam.compile_camera(
 ## Python API
 
 ```python
-from wrcam.firstframe import generate_first_frame, MockT2IProvider
+from wrbench.firstframe import generate_first_frame, MockT2IProvider
 
 manifest = generate_first_frame(
     family_id="demo",
@@ -61,12 +61,12 @@ print(manifest.image_path)
 | `mock` | none | Test placeholder PNG |
 | `dashscope` | `DASHSCOPE_API_KEY` | wan2.7-image-pro, etc. |
 
-Set `WRCAM_T2I_PROVIDER` and `WRCAM_T2I_MODEL` to override defaults.
+Set `WRBENCH_T2I_PROVIDER` and `WRBENCH_T2I_MODEL` to override defaults.
 
 ## Dependencies
 
 ```bash
-pip install 'wrcam[firstframe]'   # httpx + pillow
+pip install 'wrbench[firstframe]'   # httpx + pillow
 ```
 
-Core `import wrcam` does not require these extras.
+Core `import wrbench` does not require these extras.

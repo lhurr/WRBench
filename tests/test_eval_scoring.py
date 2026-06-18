@@ -1,4 +1,4 @@
-"""Tests for wrcam.eval.scoring."""
+"""Tests for wrbench.eval.scoring."""
 
 from __future__ import annotations
 
@@ -9,10 +9,10 @@ from pathlib import Path
 
 import pytest
 
-from wrcam.eval.scoring import export_runtime_v2_evidence_first as export_mod
-from wrcam.eval.scoring import runtime_common
-from wrcam.eval.scoring import run_local_qwen35_probe_logprob_scorer as qwen35_mod
-from wrcam.eval.scoring import run_local_qwen3vl_video_evidence as qwen3vl_mod
+from wrbench.eval.scoring import export_runtime_v2_evidence_first as export_mod
+from wrbench.eval.scoring import runtime_common
+from wrbench.eval.scoring import run_local_qwen35_probe_logprob_scorer as qwen35_mod
+from wrbench.eval.scoring import run_local_qwen3vl_video_evidence as qwen3vl_mod
 
 DUMMY_QWEN35_MODEL = "/tmp/qwen35-model-dir"
 
@@ -856,7 +856,7 @@ def test_evidence_export_standalone_required_inputs(tmp_path: Path) -> None:
 
 
 def test_metric_scoring_python_files_do_not_import_workplace() -> None:
-    scoring_dir = Path(__file__).resolve().parents[1] / "src" / "wrcam" / "eval" / "scoring"
+    scoring_dir = Path(__file__).resolve().parents[1] / "src" / "wrbench" / "eval" / "scoring"
     offenders = []
     for path in scoring_dir.glob("*.py"):
         text = path.read_text(encoding="utf-8")
@@ -899,13 +899,13 @@ def test_score_runtime_v2_shell_preflight_accepts_manifest_aliases(tmp_path: Pat
     assert "[preflight] manifest_records=1" in result.stdout
 
 
-def test_overlay_install_accepts_wrcam_repo_root() -> None:
-    from wrcam.eval.runtime import wrcam_repo_root
-    from wrcam.eval.scoring import prompts_v2_probe
-    from wrcam.eval.scoring import run_qwen35_p22_overlay as p22
-    from wrcam.eval.scoring import run_qwen35_p25_d3d4_slot_parse_overlay as p25
+def test_overlay_install_accepts_wrbench_repo_root() -> None:
+    from wrbench.eval.runtime import wrbench_repo_root
+    from wrbench.eval.scoring import prompts_v2_probe
+    from wrbench.eval.scoring import run_qwen35_p22_overlay as p22
+    from wrbench.eval.scoring import run_qwen35_p25_d3d4_slot_parse_overlay as p25
 
-    repo_root = wrcam_repo_root()
+    repo_root = wrbench_repo_root()
     p22.install_p22_overlay(repo_root)
     p25.install_p25_overlay(repo_root)
     assert p22.P22_PROMPT_MODE in prompts_v2_probe.SUPPORTED_PROMPT_MODES

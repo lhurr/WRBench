@@ -1,9 +1,9 @@
-"""Tests for wrcam.presets: preset names, frame counts, and script content."""
+"""Tests for wrbench.presets: preset names, frame counts, and script content."""
 
 import pytest
 
-from wrcam.actions import CameraScript
-from wrcam.presets import (
+from wrbench.actions import CameraScript
+from wrbench.presets import (
     PRESETS,
     arc_LR,
     arc_RL,

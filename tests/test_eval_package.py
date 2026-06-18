@@ -10,14 +10,14 @@ import pytest
 
 
 def test_eval_imports_clean() -> None:
-    import wrcam.eval  # noqa: F401
-    import wrcam.eval.aggregate.latest_d1_d6_metrics as contract  # noqa: F401
-    import wrcam.eval.d1.d1_camera  # noqa: F401
-    import wrcam.eval.scoring.runtime_common  # noqa: F401
+    import wrbench.eval  # noqa: F401
+    import wrbench.eval.aggregate.latest_d1_d6_metrics as contract  # noqa: F401
+    import wrbench.eval.d1.d1_camera  # noqa: F401
+    import wrbench.eval.scoring.runtime_common  # noqa: F401
 
 
 def test_metric_contract_schema_pinned() -> None:
-    from wrcam.eval.aggregate import latest_d1_d6_metrics as contract
+    from wrbench.eval.aggregate import latest_d1_d6_metrics as contract
 
     assert contract.SCHEMA_VERSION == "wrbench_latest_d1_d6_metrics_v3"
     specs = contract.latest_metric_specs()
@@ -33,7 +33,7 @@ def test_metric_contract_schema_pinned() -> None:
 
 
 def test_contract_json_matches_source() -> None:
-    from wrcam.eval.runtime import contract_path
+    from wrbench.eval.runtime import contract_path
 
     payload = json.loads(contract_path().read_text(encoding="utf-8"))
     assert payload["schema_version"] == "wrbench_latest_d1_d6_metrics_v3"
@@ -42,7 +42,7 @@ def test_contract_json_matches_source() -> None:
 
 
 def test_d1_pose_score_identity_trajectory() -> None:
-    from wrcam.eval.d1.pose import score_trajectory_pose
+    from wrbench.eval.d1.pose import score_trajectory_pose
 
     poses = np.repeat(np.eye(4, dtype=np.float32)[None, ...], 10, axis=0)
     target = poses.copy()
@@ -52,7 +52,7 @@ def test_d1_pose_score_identity_trajectory() -> None:
 
 
 def test_scoring_video_path_prefers_eval_video_path() -> None:
-    from wrcam.eval.scoring.runtime_common import scoring_video_path
+    from wrbench.eval.scoring.runtime_common import scoring_video_path
 
     assert (
         scoring_video_path(
@@ -67,9 +67,9 @@ def test_scoring_video_path_prefers_eval_video_path() -> None:
 
 
 def test_eval_runtime_reads_nested_scorers_block(tmp_path: Path) -> None:
-    from wrcam.eval.runtime import load_eval_runtime
+    from wrbench.eval.runtime import load_eval_runtime
 
-    runtime_path = tmp_path / "wrcam.runtime.json"
+    runtime_path = tmp_path / "wrbench.runtime.json"
     runtime_path.write_text(
         json.dumps(
             {
@@ -94,12 +94,12 @@ def test_eval_runtime_reads_nested_scorers_block(tmp_path: Path) -> None:
 
 
 def test_eval_d1_does_not_require_eval_scorers(tmp_path: Path) -> None:
-    """`wrcam eval d1` is pure-numpy scoring and must run without an eval.scorers block."""
+    """`wrbench eval d1` is pure-numpy scoring and must run without an eval.scorers block."""
     import numpy as np
 
-    from wrcam.cli import main
+    from wrbench.cli import main
 
-    runtime_path = tmp_path / "wrcam.runtime.json"
+    runtime_path = tmp_path / "wrbench.runtime.json"
     runtime_path.write_text(
         json.dumps({"schema_version": 1, "models": {"foo": {"python_bin": "/x"}}}),
         encoding="utf-8",
@@ -158,7 +158,7 @@ def test_eval_d1_does_not_require_eval_scorers(tmp_path: Path) -> None:
 
 
 def test_scoring_modules_do_not_import_workplace() -> None:
-    scoring_dir = Path(__file__).resolve().parents[1] / "src" / "wrcam" / "eval" / "scoring"
+    scoring_dir = Path(__file__).resolve().parents[1] / "src" / "wrbench" / "eval" / "scoring"
     offenders = []
     for path in scoring_dir.glob("*.py"):
         text = path.read_text(encoding="utf-8")
@@ -168,7 +168,7 @@ def test_scoring_modules_do_not_import_workplace() -> None:
 
 
 def test_contract_version_is_paper_facing() -> None:
-    from wrcam.eval.aggregate import latest_d1_d6_metrics as contract
+    from wrbench.eval.aggregate import latest_d1_d6_metrics as contract
 
     assert contract.CONTRACT_VERSION == "wrbench_paper_v1"
     payload = contract.metric_contract_payload()
@@ -176,7 +176,7 @@ def test_contract_version_is_paper_facing() -> None:
 
 
 def test_normalize_scorer_profile_aliases() -> None:
-    from wrcam.eval.runtime import normalize_scorer_profile
+    from wrbench.eval.runtime import normalize_scorer_profile
 
     assert normalize_scorer_profile("current_benchmark_p25_p22_e14") == "wrbench_default"
     assert normalize_scorer_profile("legacy_p9_all_manifest_metadata") == "ablation_manifest_metadata"
@@ -184,7 +184,7 @@ def test_normalize_scorer_profile_aliases() -> None:
 
 
 def test_main_table_includes_viewpoint_and_reobservation() -> None:
-    from wrcam.eval.aggregate.build_wrbench_vnext_main_table import build_table
+    from wrbench.eval.aggregate.build_wrbench_vnext_main_table import build_table
 
     runtime_records = [
         {
@@ -227,7 +227,7 @@ def test_main_table_includes_viewpoint_and_reobservation() -> None:
 
 
 def test_natural25_dataset_paths_exist() -> None:
-    from wrcam.datasets import (
+    from wrbench.datasets import (
         build_natural25_candidates,
         load_natural25_families,
         natural25_families_path,
@@ -243,7 +243,7 @@ def test_natural25_dataset_paths_exist() -> None:
 
 
 def test_eval_run_cli_help() -> None:
-    from wrcam.cli import main
+    from wrbench.cli import main
 
     with pytest.raises(SystemExit) as exc:
         main(["eval", "run", "--help"])
@@ -251,7 +251,7 @@ def test_eval_run_cli_help() -> None:
 
 
 def test_camalign_yaw_direction_match() -> None:
-    from wrcam.eval.d1.camera_intent import score_camera_intent
+    from wrbench.eval.d1.camera_intent import score_camera_intent
 
     poses = np.repeat(np.eye(4, dtype=np.float64)[None, ...], 10, axis=0)
     yaw = np.deg2rad(-20.0)
@@ -274,7 +274,7 @@ def test_camalign_yaw_direction_match() -> None:
 
 
 def test_camalign_static_hold() -> None:
-    from wrcam.eval.d1.camera_intent import score_camera_intent
+    from wrbench.eval.d1.camera_intent import score_camera_intent
 
     poses = np.repeat(np.eye(4, dtype=np.float64)[None, ...], 10, axis=0)
     result = score_camera_intent(poses, intent="static")
@@ -283,7 +283,7 @@ def test_camalign_static_hold() -> None:
 
 
 def test_main_table_camalign_prompt_only() -> None:
-    from wrcam.eval.aggregate.build_wrbench_vnext_main_table import build_table
+    from wrbench.eval.aggregate.build_wrbench_vnext_main_table import build_table
 
     runtime_records = [
         {
@@ -318,7 +318,7 @@ def test_main_table_camalign_prompt_only() -> None:
 
 
 def test_prompt_task_rejects_partial_natural25_override(tmp_path: Path) -> None:
-    from wrcam.cli import main
+    from wrbench.cli import main
 
     candidates = tmp_path / "candidates.json"
     candidates.write_text("[]", encoding="utf-8")

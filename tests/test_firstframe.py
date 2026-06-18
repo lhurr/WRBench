@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from wrcam.firstframe import (
+from wrbench.firstframe import (
     MockT2IProvider,
     generate_first_frame,
     generate_first_frames_from_families,
@@ -48,7 +48,7 @@ def test_generate_first_frames_from_families_skip_existing(tmp_path: Path) -> No
 
 
 def test_write_manifest(tmp_path: Path) -> None:
-    from wrcam.firstframe.generate import FirstFrameManifest
+    from wrbench.firstframe.generate import FirstFrameManifest
 
     manifests = [
         FirstFrameManifest("a", "prompt", str(tmp_path / "a.png"), "mock", "mock"),

@@ -1,6 +1,6 @@
 # Camera-Control Grammar and Pipeline
 
-Reference documentation for the `wrcam` frame-action camera grammar, the three-layer compilation pipeline, and amplitude calibration.
+Reference documentation for the `wrbench` frame-action camera grammar, the three-layer compilation pipeline, and amplitude calibration.
 
 ---
 
@@ -14,7 +14,7 @@ The grammar is a comma-separated list of **segments**:
 kind:direction:value@frames[,kind:direction:value@frames,...]
 ```
 
-Each segment covers a contiguous block of frames and expresses one camera intent. The full string is passed directly to `wrcam.compile_camera(camera=...)` or to `wrcam.parse_camera_script(...)`.
+Each segment covers a contiguous block of frames and expresses one camera intent. The full string is passed directly to `wrbench.compile_camera(camera=...)` or to `wrbench.parse_camera_script(...)`.
 
 ### Compound segments — simultaneous motion
 
@@ -55,7 +55,7 @@ The `@frames` suffix sets the number of frames this segment covers. It is option
 ### Individual motion methods
 
 ```python
-from wrcam.actions import CameraScript
+from wrbench.actions import CameraScript
 
 script = (
     CameraScript()
@@ -101,12 +101,12 @@ Valid `direction` suffixes follow the direction table above (e.g. `yaw_left`, `d
 yaw:left:60@40,yaw:right:60@41
 ```
 
-The camera yaws 60° left across 40 frames, then yaws 60° right across 41 frames, returning close to the original pose. Equivalent to `wrcam.presets.yaw_LR(peak_deg=60, frames=81)`.
+The camera yaws 60° left across 40 frames, then yaws 60° right across 41 frames, returning close to the original pose. Equivalent to `wrbench.presets.yaw_LR(peak_deg=60, frames=81)`.
 
 ```python
-import wrcam
+import wrbench
 
-result = wrcam.compile_camera(
+result = wrbench.compile_camera(
     model="wan22-fun-5b-cam",
     camera="yaw:left:60@40,yaw:right:60@41",
     image="first.png",
@@ -123,9 +123,9 @@ yaw:left:60+dolly:forward:1.0@40,yaw:right:60+dolly:back:1.0@41
 The camera orbits leftward around a subject while approaching it. Using the built-in preset:
 
 ```python
-result = wrcam.compile_camera(
+result = wrbench.compile_camera(
     model="wan22-fun-5b-cam",
-    camera=wrcam.presets.arc_LR(peak_deg=60, dolly_amount=1.0),
+    camera=wrbench.presets.arc_LR(peak_deg=60, dolly_amount=1.0),
     image="first.png",
     out="out.mp4",
 )
@@ -134,7 +134,7 @@ result = wrcam.compile_camera(
 Or building manually with `segment()`:
 
 ```python
-from wrcam.actions import CameraScript
+from wrbench.actions import CameraScript
 
 script = (
     CameraScript()
@@ -164,8 +164,8 @@ yaw:left:37@49
 A one-directional yaw sweep of any angle. Using the preset builder:
 
 ```python
-script = wrcam.presets.sweep("yaw", "left", 37, frames=49)
-result = wrcam.compile_camera(
+script = wrbench.presets.sweep("yaw", "left", 37, frames=49)
+result = wrbench.compile_camera(
     model="wan22-fun-5b-cam",
     camera=script,
     image="first.png",
@@ -176,8 +176,8 @@ result = wrcam.compile_camera(
 `sweep` works for all rotation and translation kinds:
 
 ```python
-wrcam.presets.sweep("pan", "right", 0.4, frames=49)
-wrcam.presets.sweep("dolly", "forward", 1.0, frames=49)
+wrbench.presets.sweep("pan", "right", 0.4, frames=49)
+wrbench.presets.sweep("dolly", "forward", 1.0, frames=49)
 ```
 
 ### 5. Pan go-return
@@ -186,7 +186,7 @@ wrcam.presets.sweep("dolly", "forward", 1.0, frames=49)
 pan:left:0.5@40,pan:right:0.5@41
 ```
 
-Slides the camera left for 40 frames then back right for 41 frames. Equivalent to `wrcam.presets.pan_LR(amount=0.5, frames=81)`.
+Slides the camera left for 40 frames then back right for 41 frames. Equivalent to `wrbench.presets.pan_LR(amount=0.5, frames=81)`.
 
 ### 6. Multi-segment composite: yaw left, hold, pan right
 
@@ -197,7 +197,7 @@ yaw:left:60@27,static@27,pan:right:0.5@27
 Three segments of 27 frames each, totalling 81 frames. The camera yaws left, holds still, then pans right. Composed in Python:
 
 ```python
-from wrcam.actions import CameraScript
+from wrbench.actions import CameraScript
 
 script = (
     CameraScript()
@@ -220,14 +220,14 @@ rest = max(1, frames - half)
 
 For `frames=81`: `half=40`, `rest=41`. The first segment goes in the primary direction; the second returns in the opposite direction with the same value, so the pose at the end is close to the starting pose. Frame counts are integers, so for odd totals the return leg gets one extra frame.
 
-Use `wrcam.presets.go_return(kind, first_direction, second_direction, value, frames)` for a generic go-return on any rotation or translation kind:
+Use `wrbench.presets.go_return(kind, first_direction, second_direction, value, frames)` for a generic go-return on any rotation or translation kind:
 
 ```python
 # Pitch down then up
-wrcam.presets.go_return("pitch", "down", "up", 20.0, frames=81)
+wrbench.presets.go_return("pitch", "down", "up", 20.0, frames=81)
 
 # Dolly forward then back
-wrcam.presets.go_return("dolly", "forward", "back", 1.0, frames=81)
+wrbench.presets.go_return("dolly", "forward", "back", 1.0, frames=81)
 ```
 
 ---
@@ -244,7 +244,7 @@ wrcam.presets.go_return("dolly", "forward", "back", 1.0, frames=81)
 
 ## Three-layer contract
 
-wrcam compiles camera control through three named layers:
+wrbench compiles camera control through three named layers:
 
 ### Layer 1 — `frame_action_script`
 
@@ -283,7 +283,7 @@ Each model has an `amplitude` block in its registry JSON that scales the model-a
 These values are applied during `compile_camera` inside the adapter via `model_target_trajectory`. You can inspect them with:
 
 ```python
-record = wrcam.model_record("wan22-fun-5b-cam")
+record = wrbench.model_record("wan22-fun-5b-cam")
 print(record.amplitude)
 ```
 

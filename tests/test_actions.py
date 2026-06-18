@@ -1,8 +1,8 @@
-"""Tests for wrcam.actions: parse_camera_script, CameraScript, FrameAction."""
+"""Tests for wrbench.actions: parse_camera_script, CameraScript, FrameAction."""
 
 import pytest
 
-from wrcam.actions import (
+from wrbench.actions import (
     CameraScript,
     FrameAction,
     parse_camera_script,

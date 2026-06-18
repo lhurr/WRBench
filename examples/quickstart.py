@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""WRCam quickstart example.
+"""WRBench quickstart example.
 
 Demonstrates:
   (a) Listing supported models.
@@ -18,7 +18,7 @@ import json
 import tempfile
 from pathlib import Path
 
-import wrcam
+import wrbench
 
 
 def _section(title: str) -> None:
@@ -33,13 +33,13 @@ def _section(title: str) -> None:
 # ---------------------------------------------------------------------------
 _section("(a) Supported models")
 
-models = wrcam.list_models(include_deferred=False)
+models = wrbench.list_models(include_deferred=False)
 print(f"Active models ({len(models)}):")
 for key in models:
-    rec = wrcam.model_record(key)
+    rec = wrbench.model_record(key)
     print(f"  {key:<35} input_kind={rec.input_kind}  adapter={rec.adapter}")
 
-deferred = wrcam.list_models(include_deferred=True)
+deferred = wrbench.list_models(include_deferred=True)
 deferred_only = [k for k in deferred if k not in models]
 if deferred_only:
     print(f"\nDeferred models ({len(deferred_only)}):")
@@ -53,14 +53,14 @@ _section("(b) Compile preset yaw_LR → wan22-fun-5b-cam")
 
 DEMO_MODEL = "wan22-fun-5b-cam"
 
-with tempfile.TemporaryDirectory(prefix="wrcam_quickstart_") as tmpdir:
+with tempfile.TemporaryDirectory(prefix="wrbench_quickstart_") as tmpdir:
     out_path = str(Path(tmpdir) / "yaw_lr_demo.mp4")
     # Build the preset script programmatically
-    preset_script = wrcam.presets.yaw_LR(peak_deg=60.0, frames=81)
+    preset_script = wrbench.presets.yaw_LR(peak_deg=60.0, frames=81)
     print(f"Preset script : {preset_script.to_string()}")
     print(f"Preset frames : {preset_script.frame_count}")
 
-    result_b = wrcam.compile_camera(
+    result_b = wrbench.compile_camera(
         model=DEMO_MODEL,
         camera=preset_script,
         out=out_path,
@@ -84,12 +84,12 @@ with tempfile.TemporaryDirectory(prefix="wrcam_quickstart_") as tmpdir:
     # ---------------------------------------------------------------------------
     _section("(c) Compile sweep('yaw','left',37,frames=49)")
 
-    sweep_script = wrcam.presets.sweep("yaw", "left", 37, frames=49)
+    sweep_script = wrbench.presets.sweep("yaw", "left", 37, frames=49)
     print(f"Sweep script  : {sweep_script.to_string()}")
     print(f"Sweep frames  : {sweep_script.frame_count}")
 
     out_path_c = str(Path(tmpdir) / "sweep_demo.mp4")
-    result_c = wrcam.compile_camera(
+    result_c = wrbench.compile_camera(
         model=DEMO_MODEL,
         camera=sweep_script,
         out=out_path_c,

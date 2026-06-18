@@ -2,10 +2,10 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-WRCAM_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-SCORING_DIR="${WRCAM_ROOT}/src/wrcam/eval/scoring"
-REPO_ROOT="${WRCAM_ROOT}"
-export PYTHONPATH="${WRCAM_ROOT}/src${PYTHONPATH:+:${PYTHONPATH}}"
+WRBENCH_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+SCORING_DIR="${WRBENCH_ROOT}/src/wrbench/eval/scoring"
+REPO_ROOT="${WRBENCH_ROOT}"
+export PYTHONPATH="${WRBENCH_ROOT}/src${PYTHONPATH:+:${PYTHONPATH}}"
 export FORCE_QWENVL_VIDEO_READER="${FORCE_QWENVL_VIDEO_READER:-decord}"
 export WORLD_STATE_VIDEO_BACKEND="${WORLD_STATE_VIDEO_BACKEND:-decord}"
 
@@ -13,7 +13,7 @@ PY_SCORER="${PY_SCORER:-python}"
 PY_HELPER="${PY_HELPER:-${PY_SCORER}}"
 
 MANIFEST="${MANIFEST:-}"
-OUT_DIR="${OUT_DIR:-${WRCAM_ROOT}/eval_outputs/runtime_v2_d3d6_$(date +%Y%m%d_%H%M%S)}"
+OUT_DIR="${OUT_DIR:-${WRBENCH_ROOT}/eval_outputs/runtime_v2_d3d6_$(date +%Y%m%d_%H%M%S)}"
 QWEN35_MODEL="${QWEN35_MODEL:-}"
 QWEN3VL_MODEL="${QWEN3VL_MODEL:-}"
 

@@ -1,12 +1,12 @@
-"""Tests for wrcam.builder: math invariants of build_camera_trajectory."""
+"""Tests for wrbench.builder: math invariants of build_camera_trajectory."""
 
 import math
 
 import numpy as np
 import pytest
 
-from wrcam.builder import build_camera_trajectory, default_intrinsics
-from wrcam.presets import sweep
+from wrbench.builder import build_camera_trajectory, default_intrinsics
+from wrbench.presets import sweep
 
 
 W, H = 832, 480
@@ -188,7 +188,7 @@ def test_compound_pure_translation_only_no_rotation():
 
 
 def test_compound_arc_go_return_shape():
-    from wrcam.presets import arc_LR
+    from wrbench.presets import arc_LR
 
     script = arc_LR(peak_deg=60, dolly_amount=1.0, frames=81)
     traj = build_camera_trajectory(script, width=W, height=H)
@@ -197,7 +197,7 @@ def test_compound_arc_go_return_shape():
 
 def test_compound_arc_ends_near_start():
     """Arc go-return should bring camera close to identity pose at the end."""
-    from wrcam.presets import arc_LR
+    from wrbench.presets import arc_LR
 
     traj = build_camera_trajectory(arc_LR(peak_deg=60, dolly_amount=1.0, frames=81), width=W, height=H)
     # Translation should be close to zero at end (go-return cancels out)
@@ -207,7 +207,7 @@ def test_compound_arc_ends_near_start():
 
 def test_compound_segment_api_matches_string():
     """segment() API must produce the same trajectory as the equivalent + string."""
-    from wrcam.actions import CameraScript
+    from wrbench.actions import CameraScript
 
     script_py = CameraScript().segment(40, yaw_left=60, dolly_forward=1.0)
     script_str = "yaw:left:60+dolly:forward:1@40"

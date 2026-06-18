@@ -1,10 +1,10 @@
-# WRCam
+# WRBench
 
-**Official toolkit for [WRBench](https://github.com/wrbench): camera-controlled generation and diagnostic evaluation of video world models.**
+**Official toolkit for [WRBench](https://jinplu.github.io/WRBench/): camera-controlled generation and diagnostic evaluation of video world models.**
 
 [![Paper](https://img.shields.io/badge/Paper-ICLR%202026-b31b1b?logo=arxiv&logoColor=red)](https://arxiv.org/abs/TODO)
-[![Project Page](https://img.shields.io/badge/Project-wrbench.github.io-green?logo=googlechrome)](https://wrbench.github.io)
-[![GitHub](https://img.shields.io/github/stars/JinPLu/WRCam?style=social)](https://github.com/JinPLu/WRCam)
+[![Project Page](https://img.shields.io/badge/Project-jinplu.github.io%2FWRBench-green?logo=googlechrome)](https://jinplu.github.io/WRBench/)
+[![GitHub](https://img.shields.io/github/stars/JinPLu/WRBench?style=social)](https://github.com/JinPLu/WRBench)
 
 ---
 
@@ -49,13 +49,13 @@ We evaluate models along **six separable diagnostic dimensions**, grouped by whe
 
 D5 and D6 require **re-observation support** — the model must actually bring content back into frame before they can be scored.
 
-The evaluation uses the **Natural-25** scene/event grid: 25 scene types × 4 event categories, producing controlled viewpoint-intervention prompts. All data and the published 23-model results are **bundled with `pip install wrcam`**.
+The evaluation uses the **Natural-25** scene/event grid: 25 scene types × 4 event categories, producing controlled viewpoint-intervention prompts. All data and the published 23-model results are **bundled with `pip install wrbench`**.
 
 ---
 
 ## Benchmark Results
 
-Results for 23 models on the WRBench diagnostic profile (9,600+ generated videos, 2,073 re-observation-supported rows for D5/D6). Full CSV at `src/wrcam/data/results/wrbench_23model_results.csv`.
+Results for 23 models on the WRBench diagnostic profile (9,600+ generated videos, 2,073 re-observation-supported rows for D5/D6). Full CSV at `src/wrbench/data/results/wrbench_23model_results.csv`.
 
 > **D5/D6 are only scored when re-observation support applies** (`gate_applicable_rate` ≥ 0.10). Models without a D1-CamPrec score use API prompt-camera control only.
 
@@ -120,18 +120,18 @@ pip install -e ".[all]"
 
 **Requirements:** Python ≥ 3.10. Core dependency: `numpy>=1.23` (no GPU required for compilation).
 
-For real generation and evaluation, configure backends in `wrcam.runtime.json` — copy from [`wrcam.runtime.example.json`](wrcam.runtime.example.json).
+For real generation and evaluation, configure backends in `wrbench.runtime.json` — copy from [`wrbench.runtime.example.json`](wrbench.runtime.example.json).
 
 ---
 
 ## Quick start — compile (no GPU)
 
-Describe camera motion once with the `kind:direction:value@frames` grammar; wrcam compiles it into each model's native control format and writes auditable sidecars.
+Describe camera motion once with the `kind:direction:value@frames` grammar; wrbench compiles it into each model's native control format and writes auditable sidecars.
 
 ```python
-import wrcam
+import wrbench
 
-result = wrcam.compile_camera(
+result = wrbench.compile_camera(
     model="wan22-fun-5b-cam",
     camera="yaw:left:60@40,yaw:right:60@41",  # look left 60° for 40 frames, then right
     image="first.png",
@@ -142,12 +142,12 @@ print(result["artifacts"])  # .target_c2w.npy, .camera_trajectory.json, .payload
 
 ```bash
 # dry-run (no GPU): inspect compiled payload
-wrcam generate --model wan22-fun-5b-cam --camera preset:yaw_LR --image first.png --out out.mp4
+wrbench generate --model wan22-fun-5b-cam --camera preset:yaw_LR --image first.png --out out.mp4
 
 # inspect all presets and models
-wrcam presets
-wrcam models
-wrcam doctor --all
+wrbench presets
+wrbench models
+wrbench doctor --all
 ```
 
 **Camera grammar cheatsheet:**
@@ -166,14 +166,14 @@ Full grammar reference: [docs/camera-control.md](docs/camera-control.md).
 
 ## Quick start — evaluate
 
-With scorers configured in `wrcam.runtime.json`:
+With scorers configured in `wrbench.runtime.json`:
 
 ```bash
 # Run the full D1–D6 pipeline
-wrcam eval run --manifest videos.json --out-dir eval_out/
+wrbench eval run --manifest videos.json --out-dir eval_out/
 
 # Print the metric contract (no config needed)
-wrcam eval contract
+wrbench eval contract
 ```
 
 `videos.json` is a list of records with `video_path`, `model`, `camera`, and optional sidecar paths. See [docs/eval/README.md](docs/eval/README.md) for the schema and granular stage commands (`d1-vggt`, `d1`, `d2`, `d3d6`, `table`).
@@ -185,8 +185,8 @@ wrcam eval contract
 The Natural-25 scene/event grid (25 scenes × 4 event categories) is bundled in the package:
 
 ```python
-from wrcam.datasets import build_natural25_candidates, load_natural25_families
-from wrcam.prompts.task import generate_variants_deterministic
+from wrbench.datasets import build_natural25_candidates, load_natural25_families
+from wrbench.prompts.task import generate_variants_deterministic
 
 variants = generate_variants_deterministic(
     build_natural25_candidates(),
@@ -195,7 +195,7 @@ variants = generate_variants_deterministic(
 ```
 
 ```bash
-wrcam prompt task --deterministic --output variants.jsonl
+wrbench prompt task --deterministic --output variants.jsonl
 ```
 
 ---
@@ -220,7 +220,7 @@ Detailed scorer profiles and configuration: [docs/eval/README.md](docs/eval/READ
 
 ## Supported models
 
-23 models across four control paradigms. Run `wrcam models` for the full registry with capability flags.
+23 models across four control paradigms. Run `wrbench models` for the full registry with capability flags.
 
 | Paradigm | Examples |
 |----------|---------|
@@ -235,7 +235,7 @@ Per-model guides: [`docs/models/`](docs/models/).
 
 ## Adding a model
 
-Two files + one import line. See [docs/adding-a-model.md](docs/adding-a-model.md) for the walkthrough; `wrcam doctor --model <name>` validates your adapter before running.
+Two files + one import line. See [docs/adding-a-model.md](docs/adding-a-model.md) for the walkthrough; `wrbench doctor --model <name>` validates your adapter before running.
 
 ---
 
@@ -257,9 +257,9 @@ Two files + one import line. See [docs/adding-a-model.md](docs/adding-a-model.md
 
 | Artifact | Location |
 |----------|----------|
-| Natural-25 scene/event prompts | `src/wrcam/data/natural25/` (bundled in package) |
-| Published 23-model results | `src/wrcam/data/results/wrbench_23model_results.{csv,json}` |
-| Human annotation verdicts (2,547) | Separate release — see [project page](https://wrbench.github.io) |
+| Natural-25 scene/event prompts | `src/wrbench/data/natural25/` (bundled in package) |
+| Published 23-model results | `src/wrbench/data/results/wrbench_23model_results.{csv,json}` |
+| Human annotation verdicts (2,547) | Separate release — see [project page](https://jinplu.github.io/WRBench/) |
 
 ---
 

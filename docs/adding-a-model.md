@@ -1,4 +1,4 @@
-# Adding a Model to wrcam
+# Adding a Model to wrbench
 
 Adding a new model requires exactly **two files** plus **one import line**. There is no separate alias map, no capability contract file, no amplitude YAML, no shell list, and no run-spec to edit — all of that is consolidated into the registry JSON.
 
@@ -8,16 +8,16 @@ Adding a new model requires exactly **two files** plus **one import line**. Ther
 
 | Step | What you create |
 |---|---|
-| 1 | `src/wrcam/models/<key>.json` — model registry record |
-| 2 | `src/wrcam/adapters/<key>.py` — adapter class with `@register` |
-| 3 | One import line in `src/wrcam/adapters/__init__.py` |
-| 4 | `wrcam doctor --model <key>` to verify |
+| 1 | `src/wrbench/models/<key>.json` — model registry record |
+| 2 | `src/wrbench/adapters/<key>.py` — adapter class with `@register` |
+| 3 | One import line in `src/wrbench/adapters/__init__.py` |
+| 4 | `wrbench doctor --model <key>` to verify |
 
 ---
 
 ## Step 1 — Create the model registry JSON
 
-Create `src/wrcam/models/<key>.json` where `<key>` is the canonical model identifier (lowercase, hyphen-separated, e.g. `my-model-7b-cam`).
+Create `src/wrbench/models/<key>.json` where `<key>` is the canonical model identifier (lowercase, hyphen-separated, e.g. `my-model-7b-cam`).
 
 ### Full schema
 
@@ -57,8 +57,8 @@ Create `src/wrcam/models/<key>.json` where `<key>` is the canonical model identi
 | `adapter` | string | yes for active | Logical name of the adapter; used in sidecars for traceability |
 | `payload_type` | string | no | Identifies the native payload format in sidecars and `model_control_samples.json` |
 | `amplitude` | object | yes for active | See amplitude sub-fields below |
-| `capabilities` | object | no | Free-form capability flags; surfaced in `wrcam models` output |
-| `notes` | string | no | Human-readable description for `wrcam models` |
+| `capabilities` | object | no | Free-form capability flags; surfaced in `wrbench models` output |
+| `notes` | string | no | Human-readable description for `wrbench models` |
 
 #### `amplitude` sub-fields
 
@@ -95,19 +95,19 @@ Set `"status": "deferred"` for planned but not yet implemented models. Deferred 
 
 ## Step 2 — Create the adapter module
 
-Create `src/wrcam/adapters/<key>.py`. The adapter class must implement the `CameraAdapter` protocol and be decorated with `@register(...)`.
+Create `src/wrbench/adapters/<key>.py`. The adapter class must implement the `CameraAdapter` protocol and be decorated with `@register(...)`.
 
 ```python
-# src/wrcam/adapters/my_model.py
+# src/wrbench/adapters/my_model.py
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from wrcam.adapters._utils import adapter_taxonomy_metadata, model_target_trajectory
-from wrcam.adapters.base import register
-from wrcam.payload import CameraPayload
-from wrcam.trajectory import CameraTrajectory
+from wrbench.adapters._utils import adapter_taxonomy_metadata, model_target_trajectory
+from wrbench.adapters.base import register
+from wrbench.payload import CameraPayload
+from wrbench.trajectory import CameraTrajectory
 
 
 @register("my-model-7b-cam")
@@ -160,7 +160,7 @@ class MyModelAdapter:
     ...
 ```
 
-The keys must already exist in `src/wrcam/models/` and must be `"active"` (deferred models cannot be registered). The decorator resolves aliases, so you can pass an alias — but using the canonical key is clearer.
+The keys must already exist in `src/wrbench/models/` and must be `"active"` (deferred models cannot be registered). The decorator resolves aliases, so you can pass an alias — but using the canonical key is clearer.
 
 ### `compile` contract
 
@@ -170,23 +170,23 @@ The keys must already exist in `src/wrcam/models/` and must be `"active"` (defer
 
 ## Step 3 — Register the module import
 
-Open `src/wrcam/adapters/__init__.py` and add your module to `_ADAPTER_MODULES`:
+Open `src/wrbench/adapters/__init__.py` and add your module to `_ADAPTER_MODULES`:
 
 ```python
 _ADAPTER_MODULES = [
-    "wrcam.adapters.wan_fun",
-    "wrcam.adapters.my_model",   # add this line
+    "wrbench.adapters.wan_fun",
+    "wrbench.adapters.my_model",   # add this line
 ]
 ```
 
-`wrcam.adapters` imports every module in this list on package import, which triggers the `@register` decorators and populates the adapter registry. Without this line the adapter is never loaded and `compile_camera` will raise `KeyError`.
+`wrbench.adapters` imports every module in this list on package import, which triggers the `@register` decorators and populates the adapter registry. Without this line the adapter is never loaded and `compile_camera` will raise `KeyError`.
 
 ---
 
-## Step 4 — Verify with `wrcam doctor`
+## Step 4 — Verify with `wrbench doctor`
 
 ```bash
-wrcam doctor --model my-model-7b-cam
+wrbench doctor --model my-model-7b-cam
 ```
 
 This checks that:
@@ -199,11 +199,11 @@ This checks that:
 To check all registered models at once:
 
 ```bash
-wrcam doctor --all
+wrbench doctor --all
 ```
 
 ---
 
 ## Design note
 
-WRCam collapses per-model configuration into **one JSON + one Python module + one import line**, with a single validation pass at load time. Alias maps, capability flags, amplitude calibration, and adapter wiring all live in the model JSON; `wrcam doctor` validates the pair at load time.
+WRBench collapses per-model configuration into **one JSON + one Python module + one import line**, with a single validation pass at load time. Alias maps, capability flags, amplitude calibration, and adapter wiring all live in the model JSON; `wrbench doctor` validates the pair at load time.

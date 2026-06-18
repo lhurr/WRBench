@@ -1,4 +1,4 @@
-# WRCam Examples
+# WRBench Examples
 
 Equivalent CLI commands for the three actions shown in `quickstart.py`.
 
@@ -8,13 +8,13 @@ Equivalent CLI commands for the three actions shown in `quickstart.py`.
 
 ```bash
 # Plain table (active models only)
-wrcam models
+wrbench models
 
 # Include deferred models
-wrcam models --deferred
+wrbench models --deferred
 
 # Full JSON output
-wrcam models --json
+wrbench models --json
 ```
 
 ---
@@ -22,20 +22,20 @@ wrcam models --json
 ## (b) Compile the `yaw_LR` preset for `wan22-fun-5b-cam`
 
 ```bash
-wrcam generate \
+wrbench generate \
   --model wan22-fun-5b-cam \
   --camera preset:yaw_LR \
   --image first.png \
-  --out /tmp/wrcam_demo/yaw_lr_demo.mp4
+  --out /tmp/wrbench_demo/yaw_lr_demo.mp4
 
 # With custom peak angle and frame count:
-wrcam generate \
+wrbench generate \
   --model wan22-fun-5b-cam \
   --camera preset:yaw_LR \
   --peak-deg 45 \
   --frames 81 \
   --image first.png \
-  --out /tmp/wrcam_demo/yaw_lr_demo.mp4
+  --out /tmp/wrbench_demo/yaw_lr_demo.mp4
 ```
 
 ---
@@ -44,14 +44,14 @@ wrcam generate \
 
 ```bash
 # Using the raw script grammar directly:
-wrcam generate \
+wrbench generate \
   --model wan22-fun-5b-cam \
   --camera "yaw:left:37@49" \
   --image first.png \
-  --out /tmp/wrcam_demo/sweep_demo.mp4
+  --out /tmp/wrbench_demo/sweep_demo.mp4
 
 # Inspect / validate the script before generating:
-wrcam actions --camera "yaw:left:37@49"
+wrbench actions --camera "yaw:left:37@49"
 ```
 
 ---
@@ -60,11 +60,11 @@ wrcam actions --camera "yaw:left:37@49"
 
 ```bash
 # List preset names with default expansion
-wrcam presets
+wrbench presets
 
 # Validate registry and adapter wiring for all models
-wrcam doctor --all
+wrbench doctor --all
 
 # Validate a specific model
-wrcam doctor --model wan22-fun-5b-cam
+wrbench doctor --model wan22-fun-5b-cam
 ```

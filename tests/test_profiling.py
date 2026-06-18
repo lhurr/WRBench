@@ -5,9 +5,9 @@ import os
 import sys
 from pathlib import Path
 
-from wrcam.profiling import run_profiled_command, summarize, update_summary_derived_metrics
-from wrcam.profiling.monitor import summarize_stage_events
-from wrcam.profiling.stage import StageRecorder
+from wrbench.profiling import run_profiled_command, summarize, update_summary_derived_metrics
+from wrbench.profiling.monitor import summarize_stage_events
+from wrbench.profiling.stage import StageRecorder
 
 
 def test_stage_recorder_writes_jsonl(tmp_path: Path) -> None:
@@ -19,7 +19,7 @@ def test_stage_recorder_writes_jsonl(tmp_path: Path) -> None:
 
     rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
     assert len(rows) == 1
-    assert rows[0]["schema_version"] == "wrcam_stage_event_v1"
+    assert rows[0]["schema_version"] == "wrbench_stage_event_v1"
     assert rows[0]["command_id"] == "cmd1"
     assert rows[0]["stage"] == "preprocess"
     assert rows[0]["item_id"] == "video.mp4"
@@ -35,7 +35,7 @@ def test_profiled_command_records_stages_and_derived_metrics(tmp_path: Path) -> 
 
     code = (
         "import time\n"
-        "from wrcam.profiling import get_stage_recorder\n"
+        "from wrbench.profiling import get_stage_recorder\n"
         "r = get_stage_recorder()\n"
         "with r.stage('preprocess', item_id='video.mp4'):\n"
         "    time.sleep(0.01)\n"

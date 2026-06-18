@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://jinplu.github.io/WRBench/

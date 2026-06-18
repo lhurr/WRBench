@@ -8,13 +8,14 @@ dist/
 .venv/
 venv/
 *.mp4
+!docs/videos/*.mp4
 *.target_c2w.npy
 *.camera_trajectory.json
 *.camera.json
 *.model_control_samples.json
 *.payload.json
 .DS_Store
-wrcam.runtime.json
+wrbench.runtime.json
 .cursor/
 .codex/
 .claude/

@@ -1,6 +1,6 @@
 # Generation resource profiling
 
-`wrcam.profiling` records **wall time**, **stage-level timing**, and **peak GPU memory** for generation commands. This is producer-side observability for fair speed/cost comparison — not D1-D6 scoring.
+`wrbench.profiling` records **wall time**, **stage-level timing**, and **peak GPU memory** for generation commands. This is producer-side observability for fair speed/cost comparison — not D1-D6 scoring.
 
 ## Fair headline metric
 
@@ -34,17 +34,17 @@ Where:
 
 ```bash
 # Profile any command
-wrcam profile --out-dir profiles/ --model wan22-fun-5b-cam -- \
+wrbench profile --out-dir profiles/ --model wan22-fun-5b-cam -- \
   python run_generation.py --scene demo
 
 # Summarize profiles (directory, JSON, or JSONL)
-wrcam profile-summary profiles/ --format markdown
+wrbench profile-summary profiles/ --format markdown
 ```
 
 ## Python API
 
 ```python
-from wrcam.profiling import StageRecorder, run_profiled_command, summarize, load_profiles
+from wrbench.profiling import StageRecorder, run_profiled_command, summarize, load_profiles
 
 with StageRecorder("events.jsonl").stage("inference", item_id="out.mp4"):
     ...
@@ -57,10 +57,10 @@ rows = summarize(load_profiles(["profiles/"]))
 
 Child processes receive stage recording when the parent sets:
 
-- `WRCAM_STAGE_EVENTS_PATH` — path to append `.stage_events.jsonl`
-- `WRCAM_RESOURCE_COMMAND_ID` — command identity hash
+- `WRBENCH_STAGE_EVENTS_PATH` — path to append `.stage_events.jsonl`
+- `WRBENCH_RESOURCE_COMMAND_ID` — command identity hash
 
-Use `from wrcam.profiling import get_stage_recorder` inside the child.
+Use `from wrbench.profiling import get_stage_recorder` inside the child.
 
 ## Dependencies
 
@@ -87,8 +87,8 @@ benchmark. `gpu_seconds_per_output_second` multiplies benchmark wall time by `gp
 (no smoke-task harness yet); `hunyuanworld-voyager` (research-only); `hyworld-worldgen`
 (upstream blocked).
 
-Summarize saved profiles with WRCam:
+Summarize saved profiles with WRBench:
 
 ```bash
-wrcam profile-summary /path/to/resource_profiles --format markdown
+wrbench profile-summary /path/to/resource_profiles --format markdown
 ```

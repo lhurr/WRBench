@@ -1,8 +1,8 @@
 from pathlib import Path
 
-from wrcam.backends import DryRunBackend, GenerationRequest, default_backend
-from wrcam.payload import CameraPayload
-from wrcam.trajectory import CameraTrajectory
+from wrbench.backends import DryRunBackend, GenerationRequest, default_backend
+from wrbench.payload import CameraPayload
+from wrbench.trajectory import CameraTrajectory
 import numpy as np
 
 

@@ -1,4 +1,4 @@
-"""End-to-end dry-run tests for wrcam.compile_camera over all active models."""
+"""End-to-end dry-run tests for wrbench.compile_camera over all active models."""
 
 import json
 from pathlib import Path
@@ -6,8 +6,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-import wrcam
-from wrcam.registry import active_model_keys, input_kind
+import wrbench
+from wrbench.registry import active_model_keys, input_kind
 
 
 # ---------------------------------------------------------------------------
@@ -57,7 +57,7 @@ def model_result(request, tmp_path):
     """Compile the standard camera script for each active model and return the result."""
     key = request.param
     out = tmp_path / "output.mp4"
-    result = wrcam.compile_camera(
+    result = wrbench.compile_camera(
         model=key,
         camera=CAMERA_SCRIPT,
         out=out,
@@ -131,7 +131,7 @@ def test_camera_json_frame_action_script(model_result):
 def test_missing_input_raises(key, tmp_path):
     out = tmp_path / "output.mp4"
     with pytest.raises(ValueError):
-        wrcam.compile_camera(
+        wrbench.compile_camera(
             model=key,
             camera=CAMERA_SCRIPT,
             out=out,
@@ -144,7 +144,7 @@ def test_wrong_input_kind_raises(key, tmp_path):
     out = tmp_path / "output.mp4"
     wrong_kwargs = _wrong_input_kwargs(key)
     with pytest.raises(ValueError):
-        wrcam.compile_camera(
+        wrbench.compile_camera(
             model=key,
             camera=CAMERA_SCRIPT,
             out=out,
@@ -161,16 +161,16 @@ def test_camera_script_object_equals_string(key, tmp_path):
     out_str = tmp_path / "from_str.mp4"
     out_obj = tmp_path / "from_obj.mp4"
 
-    preset_script = wrcam.presets.yaw_LR(peak_deg=60, frames=81)
+    preset_script = wrbench.presets.yaw_LR(peak_deg=60, frames=81)
 
-    result_str = wrcam.compile_camera(
+    result_str = wrbench.compile_camera(
         model=key,
         camera=CAMERA_SCRIPT,
         out=out_str,
         **_input_kwargs(key),
         dry_run=True,
     )
-    result_obj = wrcam.compile_camera(
+    result_obj = wrbench.compile_camera(
         model=key,
         camera=preset_script,
         out=out_obj,

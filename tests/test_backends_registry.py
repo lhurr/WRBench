@@ -7,9 +7,9 @@ from pathlib import Path
 
 import pytest
 
-from wrcam.backends.launchers.easyanimate import build_easyanimate_command
-from wrcam.backends.registry import list_backends, resolve_backend
-from wrcam.runtime import RuntimeConfig, ModelRuntime, load_runtime_config
+from wrbench.backends.launchers.easyanimate import build_easyanimate_command
+from wrbench.backends.registry import list_backends, resolve_backend
+from wrbench.runtime import RuntimeConfig, ModelRuntime, load_runtime_config
 
 
 def test_resolve_backend_defaults_to_dry_run_without_runtime():
@@ -18,7 +18,7 @@ def test_resolve_backend_defaults_to_dry_run_without_runtime():
 
 
 def test_resolve_backend_local_when_runtime_configured(tmp_path: Path):
-    runtime_path = tmp_path / "wrcam.runtime.json"
+    runtime_path = tmp_path / "wrbench.runtime.json"
     repo = tmp_path / "EasyAnimate"
     repo.mkdir()
     (repo / "predict_v2v_control.py").write_text("# stub\n", encoding="utf-8")

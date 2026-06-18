@@ -1,6 +1,6 @@
-# WRBench evaluation in WRCam
+# WRBench evaluation in WRBench
 
-WRCam ships the official **WRBench** diagnostic evaluation toolkit described in
+WRBench ships the official **WRBench** diagnostic evaluation toolkit described in
 *World Models Need More Than Static Scene* (ICLR 2026). Evaluation is organized
 as six separable dimensions plus re-observation support for returned-state metrics.
 
@@ -10,10 +10,10 @@ as six separable dimensions plus re-observation support for returned-state metri
 compile (numpy, no config)  →  generate (optional, GPU)  →  evaluate (optional, GPU)
 ```
 
-- **Core / compile** — camera grammar → native payloads + sidecars (`wrcam generate`, dry-run default)
-- **Core / evaluate** — WRBench D1–D6 diagnostic profile (`wrcam eval`)
-- **Optional / generate** — real video via configured backends (`wrcam generate --no-dry-run`)
-- **Optional extras** — prompts, first frames, cost profiling (`wrcam prompt`, `wrcam firstframe`, `wrcam profile`)
+- **Core / compile** — camera grammar → native payloads + sidecars (`wrbench generate`, dry-run default)
+- **Core / evaluate** — WRBench D1–D6 diagnostic profile (`wrbench eval`)
+- **Optional / generate** — real video via configured backends (`wrbench generate --no-dry-run`)
+- **Optional extras** — prompts, first frames, cost profiling (`wrbench prompt`, `wrbench firstframe`, `wrbench profile`)
 
 ## Diagnostic dimensions
 
@@ -33,11 +33,11 @@ compile (numpy, no config)  →  generate (optional, GPU)  →  evaluate (option
 - **CamPrec** — strict requested-control trajectory precision for models that receive explicit trajectories.
 - **CamAlign** — common-yaw / static-hold intent alignment for prompt-only and API models (and as a separate paper column in the main table).
 
-Contract: [`src/wrcam/eval/contract/`](../src/wrcam/eval/contract/)
+Contract: [`src/wrbench/eval/contract/`](../src/wrbench/eval/contract/)
 
 ## Configure scorers
 
-Copy [`wrcam.runtime.example.json`](../../wrcam.runtime.example.json) to `wrcam.runtime.json`
+Copy [`wrbench.runtime.example.json`](../../wrbench.runtime.example.json) to `wrbench.runtime.json`
 and set `eval.scorers` (VGGT, DINOv2, Qwen paths). Heavy models are **not** pip
 dependencies; they run via configured interpreters, like generation backends.
 
@@ -45,23 +45,23 @@ dependencies; they run via configured interpreters, like generation backends.
 
 ```bash
 # Print the D1-D6 contract (no config required)
-wrcam eval contract
-wrcam eval contract --json
+wrbench eval contract
+wrbench eval contract --json
 
 # One-command full pipeline (recommended)
-wrcam eval run \
+wrbench eval run \
   --manifest videos.json \
   --out-dir eval_out/
 
 # Granular stages (power users)
-wrcam eval d1-vggt --input-jsonl rows.jsonl --output-root /tmp/d1_vggt
-wrcam eval d1 --input-jsonl rows.jsonl --output-jsonl d1.jsonl \
+wrbench eval d1-vggt --input-jsonl rows.jsonl --output-root /tmp/d1_vggt
+wrbench eval d1 --input-jsonl rows.jsonl --output-jsonl d1.jsonl \
   --summary-csv d1.csv --pose-cache-root /tmp/d1_vggt/cache
-wrcam eval d1-camalign --input-jsonl rows.jsonl --output-jsonl camalign.jsonl \
+wrbench eval d1-camalign --input-jsonl rows.jsonl --output-jsonl camalign.jsonl \
   --pose-cache-root /tmp/d1_vggt/cache
-wrcam eval d2 --videos-manifest videos.json --out-jsonl d2.jsonl
-wrcam eval d3d6 --manifest videos.json --out-dir /tmp/d3d6 --stage all
-wrcam eval table \
+wrbench eval d2 --videos-manifest videos.json --out-jsonl d2.jsonl
+wrbench eval d3d6 --manifest videos.json --out-dir /tmp/d3d6 --stage all
+wrbench eval table \
   --runtime-scores /tmp/d3d6/final_exports/scores_v7_*_gate_masked_export.json \
   --d1-scores d1.jsonl --d1-camalign-scores camalign.jsonl --d2-scores d2.jsonl \
   --out-csv table.csv --out-md table.md --out-summary summary.json
@@ -74,7 +74,7 @@ D3–D6 orchestration shell: [`scripts/eval/score_runtime_v2_d3d6.sh`](../../scr
 ## Package layout
 
 ```
-src/wrcam/eval/
+src/wrbench/eval/
   d1/          CamPrec + CamAlign (pose recovery + intent scoring)
   d2/          visual integrity (DINOv2)
   scoring/     visible + returned VLM probe scorers

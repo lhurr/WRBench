@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from wrcam.prompts.camera_text import (
+from wrbench.prompts.camera_text import (
     assemble_ti2v_prompt,
     build_prompt_to_send,
     camera_clause,
     preset_camera_text,
 )
-from wrcam.prompts.scene import load_t2i_scene_system_prompt
-from wrcam.prompts.task import (
+from wrbench.prompts.scene import load_t2i_scene_system_prompt
+from wrbench.prompts.task import (
     build_scene_start,
     detect_pronoun,
     generate_variants_deterministic,
@@ -95,7 +95,7 @@ def test_deterministic_variants_minimal() -> None:
 
 
 def test_generate_t2i_scene_with_mock_llm() -> None:
-    from wrcam.prompts.scene import generate_t2i_scene
+    from wrbench.prompts.scene import generate_t2i_scene
 
     family = {
         "family_id": "x",
