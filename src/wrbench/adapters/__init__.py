@@ -24,6 +24,7 @@ _ADAPTER_MODULES = [
     "wrbench.adapters.sana_wm",
     "wrbench.adapters.easyanimate",
     "wrbench.adapters.minwm",
+    "wrbench.adapters.minwm_wan",
     "wrbench.adapters.hydra",
     "wrbench.adapters.spatia_inspatio",
     "wrbench.adapters.action_candidate",
