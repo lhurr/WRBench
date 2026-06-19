@@ -284,13 +284,6 @@ class MinWMHyAction2VAdapter:
 @register("minwm-wan-action2v")
 class MinWMWanAction2VAdapter:
     """minWM with the Wan 2.1 Action2V backbone.
-
-    Same native-motion-token camera control as the HY backbone; reuses the
-    token-mapping helpers above. Wan21/wan_inference.py reads prompts from
-    --data_path and per-sample tokens from --trajectory_path. Camera control runs
-    T2V-only: the DMD camera checkpoint uses num_frame_per_block=4, and upstream
-    i2v needs a frame-wise model launched without torch.distributed, so first-frame
-    conditioning is unsupported here.
     """
 
     name = "minwm_wan_action2v"
