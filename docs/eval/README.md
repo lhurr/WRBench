@@ -1,7 +1,7 @@
 # WRBench evaluation in WRBench
 
 WRBench ships the official **WRBench** diagnostic evaluation toolkit described in
-*Current World Models Lack a Persistent State Core* (preprint). Evaluation is organized
+*Current World Models Lack a Persistent State Core* ([arXiv:2606.20545](https://arxiv.org/abs/2606.20545)). Evaluation is organized
 as six separable dimensions plus re-observation support for D5/D6.
 
 ## Mental model

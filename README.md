@@ -2,20 +2,24 @@
 
 **Official toolkit for [WRBench](https://jinplu.github.io/WRBench/): camera-controlled generation and diagnostic evaluation of video world models.**
 
-[![Paper](https://img.shields.io/badge/Paper-Preprint-b31b1b?logo=arxiv&logoColor=red)](https://arxiv.org/abs/TODO)
+[![Paper](https://img.shields.io/badge/Paper-arXiv%3A2606.20545-b31b1b?logo=arxiv&logoColor=red)](https://arxiv.org/abs/2606.20545)
+[![HF Paper](https://img.shields.io/badge/Hugging%20Face-Paper-yellow?logo=huggingface)](https://huggingface.co/papers/2606.20545)
 [![Project Page](https://img.shields.io/badge/Project-jinplu.github.io%2FWRBench-green?logo=googlechrome)](https://jinplu.github.io/WRBench/)
+[![Artifacts](https://img.shields.io/badge/Hugging%20Face-Artifacts-yellow?logo=huggingface)](https://huggingface.co/collections/WRBench/wrbench-current-world-models-lack-a-persistent-state-core-6a365c717251293c9fc2cc26)
+[![Leaderboard](https://img.shields.io/badge/Hugging%20Face-Leaderboard-yellow?logo=huggingface)](https://huggingface.co/spaces/WRBench/wrbench-leaderboard)
 [![GitHub](https://img.shields.io/github/stars/JinPLu/WRBench?style=social)](https://github.com/JinPLu/WRBench)
 
 ---
 
 > **Current World Models Lack a Persistent State Core**
-> *Preprint*
+> *[arXiv:2606.20545](https://arxiv.org/abs/2606.20545)*
 
 ---
 
 ## Table of Contents
 
 - [Overview](#overview)
+- [Release artifacts](#release-artifacts)
 - [Benchmark Results](#benchmark-results)
 - [Installation](#installation)
 - [Quick start — compile](#quick-start--compile-no-gpu)
@@ -50,6 +54,24 @@ We evaluate models along **six separable diagnostic dimensions**, grouped by whe
 D5 and D6 require **re-observation support** — the model must actually bring content back into frame before they can be scored.
 
 The evaluation uses the **Natural-25** scene/event grid: 25 scene types × 4 event categories, producing controlled viewpoint-intervention prompts. All data and the published 23-model results are **bundled with `pip install wrbench`**.
+
+---
+
+## Release artifacts
+
+| Surface | Link |
+|---------|------|
+| Paper | [arXiv](https://arxiv.org/abs/2606.20545) · [Hugging Face paper page](https://huggingface.co/papers/2606.20545) |
+| Project page | [jinplu.github.io/WRBench](https://jinplu.github.io/WRBench/) |
+| All Hugging Face artifacts | [WRBench collection](https://huggingface.co/collections/WRBench/wrbench-current-world-models-lack-a-persistent-state-core-6a365c717251293c9fc2cc26) |
+| Leaderboard | [WRBench/wrbench-leaderboard](https://huggingface.co/spaces/WRBench/wrbench-leaderboard) |
+| Natural-25 prompts and first frames | [WRBench/wrbench-natural25](https://huggingface.co/datasets/WRBench/wrbench-natural25) |
+| Published 23-model results | [WRBench/wrbench-results](https://huggingface.co/datasets/WRBench/wrbench-results) |
+| Human annotation verdicts | [WRBench/wrbench-human-annotations](https://huggingface.co/datasets/WRBench/wrbench-human-annotations) |
+| Benchmark videos and per-video scores | [WRBench/wrbench-videos](https://huggingface.co/datasets/WRBench/wrbench-videos) |
+
+The main Hugging Face configs load directly with `datasets`: `variants`,
+`model_scores`, `pairs`, and `videos_master`.
 
 ---
 
@@ -278,7 +300,12 @@ Two files + one import line. See [docs/adding-a-model.md](docs/adding-a-model.md
 | Natural-25 pre-generated TI2V prompt variants | `src/wrbench/data/natural25/variants.jsonl` |
 | Natural-25 released first frames | `src/wrbench/data/natural25/first_frames/` |
 | Published 23-model results | `src/wrbench/data/results/wrbench_23model_results.{csv,json}` |
-| Human annotation verdicts (2,547) | Separate release — see [project page](https://jinplu.github.io/WRBench/) |
+| Hugging Face release hub | [WRBench collection](https://huggingface.co/collections/WRBench/wrbench-current-world-models-lack-a-persistent-state-core-6a365c717251293c9fc2cc26) |
+| Natural-25 public dataset | [WRBench/wrbench-natural25](https://huggingface.co/datasets/WRBench/wrbench-natural25) |
+| Published results public dataset | [WRBench/wrbench-results](https://huggingface.co/datasets/WRBench/wrbench-results) |
+| Human annotation verdicts (2,547) | [WRBench/wrbench-human-annotations](https://huggingface.co/datasets/WRBench/wrbench-human-annotations) |
+| Benchmark videos (9,600) | [WRBench/wrbench-videos](https://huggingface.co/datasets/WRBench/wrbench-videos) |
+| Interactive leaderboard | [WRBench/wrbench-leaderboard](https://huggingface.co/spaces/WRBench/wrbench-leaderboard) |
 
 ---
 
@@ -288,9 +315,9 @@ Two files + one import line. See [docs/adding-a-model.md](docs/adding-a-model.md
 @article{wrbench2026,
   title   = {Current World Models Lack a Persistent State Core},
   author  = {Jinpeng Lu and Dexu Zhu and Haoyuan Shi and Yinda Chen and Linghan Cai and Guo Tang and Jie Cao and Yong Dai},
+  journal = {arXiv preprint arXiv:2606.20545},
   year    = {2026},
-  note    = {Preprint},
-  url     = {https://github.com/JinPLu/WRBench},
+  url     = {https://arxiv.org/abs/2606.20545},
 }
 ```
 
