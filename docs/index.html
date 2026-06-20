@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>WRBench | Current World Models Lack a Persistent State Core</title>
   <meta name="description"
-    content="WRBench is a diagnostic benchmark for dynamic world-state evaluation under viewpoint changes. 23 video generators, 9,600 videos, six evaluation dimensions, and a diagnostic profile — not one scalar score.">
+    content="WRBench tests whether video world models remember what changed while the camera looked away. 23 video generators, 9,600 videos, six checks, and returned-state evidence.">
   <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://jinplu.github.io/WRBench/">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2044,6 +2044,27 @@
       flex-wrap: wrap;
     }
 
+    .footer-links,
+    .footer-traffic {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .traffic-badge {
+      display: inline-flex;
+      align-items: center;
+      height: 22px;
+      line-height: 0;
+    }
+
+    .traffic-badge img {
+      display: block;
+      height: 20px;
+      max-width: 100%;
+    }
+
     @media (max-width: 1100px) {
       .findings-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2152,7 +2173,7 @@
       <a href="#insight">The gap</a>
       <a href="#findings">Findings</a>
       <a href="#positioning">Positioning</a>
-      <a href="#results">Diagnostic Profile</a>
+      <a href="#results">Results</a>
       <a href="#analysis">Evidence</a>
       <a href="#videos">Cases</a>
       <a href="#method">Method</a>
@@ -2164,13 +2185,12 @@
     <section class="hero-band content-section" id="top">
       <div class="container hero-grid reveal">
         <div class="hero-copy">
-          <p class="hero-badge">Diagnostic benchmark for dynamic world-state evaluation under viewpoint changes</p>
+          <p class="hero-badge">Benchmarking whether video world models remember off-screen change</p>
           <h1>Current World Models Lack a Persistent State Core</h1>
-          <p class="hero-subtitle-pill">WRBench treats camera motion as an <strong>intervention on
-              observability</strong>: the scene is fixed, the event is set in motion, and the camera decides what can be
-            seen.</p>
-          <p class="hero-tagline">The test is endpoint binding: does the target keep the event outcome while unobserved,
-            or does it merely reappear when the camera returns?</p>
+          <p class="hero-subtitle-pill">WRBench makes the model <strong>look away and come back</strong>: the scene is
+            fixed, the event happens off-screen, and the returned view must show what changed.</p>
+          <p class="hero-tagline">If a cat jumps onto a bed while hidden, it should still be on the bed when the camera
+            returns.</p>
           <div class="btn-group">
             <a class="btn primary" href="https://arxiv.org/abs/2606.20545" target="_blank" rel="noopener">arXiv:2606.20545</a>
             <a class="btn" href="https://arxiv.org/pdf/2606.20545" target="_blank" rel="noopener">Paper PDF</a>
@@ -2181,20 +2201,20 @@
           </div>
         </div>
         <aside class="hero-summary-card">
-          <span class="hero-summary-label">Preservation–access–returned-consistency gap</span>
+          <span class="hero-summary-label">The central gap</span>
           <div class="hero-summary-headline">23 / 23</div>
-          <p class="hero-summary-sub">Across the evaluated <strong>23 models</strong>, visible quality and access can
-            improve while <strong>returned-state correctness</strong> remains separate; current systems behave like
-            tracking shots rather than persistent world states.
+          <p class="hero-summary-sub">Across the evaluated <strong>23 models</strong>, clean frames and re-finding the
+            scene do not reliably preserve the off-screen outcome. Current systems often behave like tracking shots,
+            not persistent worlds.
           </p>
           <div class="hero-stats-grid">
             <div class="stat">
               <div class="stat-num">9,600</div>
-              <div class="stat-label">generated videos</div>
+              <div class="stat-label">scored videos</div>
             </div>
             <div class="stat">
               <div class="stat-num">6</div>
-              <div class="stat-label">evaluation dimensions</div>
+              <div class="stat-label">separate checks</div>
             </div>
             <div class="stat">
               <div class="stat-num">2,073</div>
@@ -2213,9 +2233,9 @@
             <img src="assets/teaser-cat-state-v20260619.png"
               alt="WRBench cat-state teaser: the cat jumps onto the bed while the camera looks away, then WRBench checks the returned state">
           </div>
-          <p class="caption figure-caption-center">Figure 1. In the cat-jumps-onto-bed probe, WRBench fixes the scene,
-            event, and camera path, then checks whether the cat remains on the bed when the camera returns instead of
-            jumping, splitting, vanishing, or resetting.</p>
+          <p class="caption figure-caption-center">Figure 1. The scene and camera path are fixed. The question is
+            simple: after the camera looks away and returns, is the cat on the bed, or did the video reset, duplicate,
+            or lose it?</p>
         </div>
       </div>
     </section>
@@ -2228,56 +2248,53 @@
               class="title-accent">on the bed when the camera returns?</span></h2>
         </div>
         <p class="section-lead reveal">Start in a bedroom with a cat on the floor. <strong>Turn the camera away.</strong>
-          The prompt says the cat jumps onto the bed. <strong>Turn back.</strong> A real world keeps unfolding while
-          unobserved, much as the moon holds its orbit when no one is looking. Evaluated video generators instead show
-          distinct failures: the cat may jump to a new place, split into duplicates, vanish, or freeze and reset to its
-          abandoned state. On return the target must <strong>preserve the event endpoint</strong>, not merely
-          <strong>reappear plausibly</strong>. That is the difference between a world model and a video renderer — and
-          WRBench is built to catch it.
+          The prompt says the cat jumps onto the bed. <strong>Turn back.</strong> A real world keeps unfolding while it
+          is not being watched. Evaluated video generators often do something weaker: the cat may drift, duplicate,
+          vanish, or reset. A world model should preserve <strong>what happened</strong>, not just draw a plausible
+          returned frame.
         </p>
 
         <div class="manifesto reveal">
           <article class="manifesto-step stage-visible">
             <span class="step-chip"><span class="step-num">Stage 01</span><span class="step-name">Visible</span></span>
-            <strong>Did the viewpoint intervention <em class="step-em">happen?</em></strong>
-            <p>Requested-camera precision and prompt-camera alignment decide whether the camera actually creates the
-              observability change WRBench asks for.
+            <strong>Did the camera <em class="step-em">move as asked?</em></strong>
+            <p>Before testing memory, WRBench checks whether the generated video actually follows the requested
+              look-away-and-return motion.
             </p>
             <div class="step-foot"><span class="step-foot-chip mint">control before memory</span></div>
           </article>
           <article class="manifesto-step stage-access">
             <span class="step-chip"><span class="step-num">Stage 02</span><span class="step-name">Access</span></span>
-            <strong>Is visible evidence <em class="step-em">readable?</em></strong>
-            <p>Visual integrity plus visible spatial/state consistency show whether the observed scene and event are
-              coherent before the hidden-state question is scored.
+            <strong>Is the visible part <em class="step-em">readable?</em></strong>
+            <p>The visible frames must be coherent enough to judge the scene and the action before the hidden change is
+              tested.
             </p>
             <div class="step-foot"><span class="step-foot-chip teal">visible evidence</span></div>
           </article>
           <article class="manifesto-step stage-return">
             <span class="step-chip"><span class="step-num">Stage 03</span><span class="step-name">Return</span></span>
-            <strong>Is the returned endpoint <em class="step-em">bound?</em></strong>
-            <p>Re-observation support asks whether the target returns in judgeable form; returned spatial/state
-              consistency asks whether it preserves the event endpoint.</p>
-            <div class="step-foot"><span class="step-foot-chip rose">returned endpoint</span></div>
+            <strong>Does the returned view <em class="step-em">remember?</em></strong>
+            <p>When the target comes back into view, WRBench checks whether its location and state match the event that
+              happened off-screen.</p>
+            <div class="step-foot"><span class="step-foot-chip rose">returned state</span></div>
           </article>
         </div>
 
         <div class="chain-pills reveal">
-          <span class="chain-pill s1">preservation</span>
+          <span class="chain-pill s1">look away</span>
           <span class="chain-arrow">→</span>
-          <span class="chain-pill s2">access</span>
+          <span class="chain-pill s2">find again</span>
           <span class="chain-arrow">→</span>
-          <span class="chain-pill s3">returned consistency</span>
-          <span class="chain-gap">preservation–access–returned-consistency gap</span>
+          <span class="chain-pill s3">remember result</span>
+          <span class="chain-gap">the return is visible, but the state is wrong</span>
         </div>
 
         <article class="video-case gap-demo reveal">
           <div class="video-case-head">
             <div>
-              <h3>Representative video instance — the cat jumps onto the bed</h3>
-              <p>Same scene and task as the Figure 1 teaser: bedroom cat jump · T2_div_b · right-to-left yaw ·
-                preferred 60-profile videos. The expected endpoint is simple: after the camera returns, the cat should
-                be on the bed.</p>
+              <h3>Cat jumps onto bed: three outcomes</h3>
+              <p>The same teaser scene and camera path are shown across three models. The expected outcome is simple:
+                after the camera returns, the cat should be on the bed.</p>
             </div>
           </div>
           <div class="video-grid triad">
@@ -2287,27 +2304,27 @@
               </div>
               <video src="videos/cat_expected_inspatio_yaw_rl60.mp4" autoplay loop muted playsinline controls
                 preload="metadata"></video>
-              <p class="caption">The cat reaches the bed and the returned view supports the cat-on-bed endpoint.</p>
+              <p class="caption">The cat reaches the bed, and the returned view still supports that outcome.</p>
             </div>
             <div class="video-panel fail">
               <div class="video-meta"><strong>Wan-Fun 2.2-5B</strong><span class="badge fail">Dragged target</span>
               </div>
               <video src="videos/cat_drag_wan22_5b_yaw_rl60.mp4" autoplay loop muted playsinline controls
                 preload="metadata"></video>
-              <p class="caption">The cat is carried through the view instead of cleanly binding the jump endpoint.</p>
+              <p class="caption">The cat is carried along with the camera instead of completing a clean jump.</p>
             </div>
             <div class="video-panel fail">
               <div class="video-meta"><strong>Hunyuan WorldPlay</strong><span class="badge fail">Return problem</span>
               </div>
               <video src="videos/cat_reobs_worldplay_yaw_rl60.mp4" autoplay loop muted playsinline controls
                 preload="metadata"></video>
-              <p class="caption">The return does not establish the expected cat-on-bed state.</p>
+              <p class="caption">The camera returns, but the expected cat-on-bed state is not established.</p>
             </div>
           </div>
           <div class="case-frame">
             <img src="assets/teaser-cat-state-v20260619.png" alt="Cat jumps onto bed teaser montage">
-            <p class="caption">Frame montage: the teaser fixes the scene, event, and camera path, then checks whether
-              the returned view preserves the cat-on-bed endpoint.
+            <p class="caption">Frame montage: the camera looks away during the jump, then returns to check whether the
+              off-screen outcome was kept.
             </p>
           </div>
         </article>
@@ -2320,12 +2337,11 @@
           <p class="section-label">Findings</p>
           <h2 class="section-title">Six things we learned — the <span class="title-accent">core of WRBench.</span></h2>
         </div>
-        <p class="section-lead reveal">From <strong>23 models</strong> and <strong>9,600 videos</strong>: Findings 1–3
-          hold across every model and interface; Findings 4–6 diagnose what changes within a controlled model family.
-          Everything below — benchmark positioning, the diagnostic profile, the charts, and the case studies — is
-          evidence for one of them.</p>
-        <p class="findings-bridge reveal"><strong>Six headline findings</strong>, stated as in the paper — each names a
-          mechanism, not a leaderboard rank.</p>
+        <p class="section-lead reveal">From <strong>23 models</strong> and <strong>9,600 videos</strong>, the pattern is
+          consistent: models can make clean videos, follow a camera, and bring objects back into view, yet still lose
+          what changed while hidden.</p>
+        <p class="findings-bridge reveal"><strong>Six headline findings</strong>, stated as mechanisms rather than a
+          single leaderboard rank.</p>
         <div class="findings-grid reveal" id="findings-grid"></div>
       </div>
     </section>
@@ -2336,10 +2352,9 @@
           <p class="section-label">Positioning</p>
           <h2 class="section-title">Where WRBench sits among video and world-model benchmarks.</h2>
         </div>
-        <p class="section-lead reveal">Table 1 from the paper. The comparison does not rank the value of prior
-          benchmarks — each covers an important slice of video or world-model evaluation. It records which
-          <strong>benchmark targets are explicit enough to enable dynamic world-state evaluation under viewpoint
-            intervention</strong>. Symbols mark stated benchmark targets, not overall benchmark value.
+        <p class="section-lead reveal">Table 1 from the paper. Prior benchmarks cover important parts of video and
+          world-model evaluation. WRBench adds a specific stress test: change the viewpoint, hide the target, return,
+          and ask whether the hidden event outcome stayed true.
         </p>
         <div class="table-wrap reveal" id="benchmark-table-wrap"></div>
         <div class="bench-legend reveal">
@@ -2347,10 +2362,10 @@
           <span><span class="bench-cell part">◐</span> adjacent / mixed target</span>
           <span><span class="bench-cell no">✗</span> not a stated target</span>
         </div>
-        <div class="callout reveal"><strong>State robustness</strong> = viewpoint/visibility-aware state evidence with
-          separate control, re-observation, and error attribution. <strong>Evolution Consistency</strong> asks whether
-          unobserved event outcomes remain bound on return. <strong>Pathway diagnostics</strong> = metric-,
-          condition-type-, and feature-readout diagnostics. WRBench is the only row that targets all three.</div>
+        <div class="callout reveal"><strong>State robustness</strong> means the benchmark separates camera following,
+          re-finding the target, and preserving the returned state. <strong>Evolution consistency</strong> asks whether
+          the off-screen event outcome remains true when the camera comes back. WRBench is the only row that targets all
+          three paper-level requirements.</div>
       </div>
     </section>
 
@@ -2360,30 +2375,29 @@
           <p class="section-label">Diagnostic profile</p>
           <h2 class="section-title">23 models — separate preservation, access, and return.</h2>
         </div>
-        <p class="section-lead reveal">WRBench reports a <strong>diagnostic profile</strong>, not a scalar leaderboard.
-          The profile separates control execution, visible evidence, re-observation support, and returned
-          spatial/state consistency. Best/second marks are read within each viewpoint condition type, as in the paper.
-          Click any header to sort.
+        <p class="section-lead reveal">WRBench does not collapse everything into one score. The table separates whether
+          the camera was followed, whether the visible frames are readable, whether the target returns, and whether the
+          returned state is correct. Click any header to sort.
         </p>
         <div class="metrics-block reveal">
           <article class="metric-guide">
             <div class="metric-guide-tag">Stage 1</div>
             <strong>Vis. spatial / state</strong>
-            <span class="metric-formula">while target stays on screen</span>
-            <p><strong>Visible consistency</strong> — largely solved; high scores here do not predict a correct return.
+            <span class="metric-formula">while the target stays on screen</span>
+            <p><strong>Visible consistency</strong> — often strong; it does not guarantee a correct return.
             </p>
           </article>
           <article class="metric-guide">
             <div class="metric-guide-tag">Stage 2</div>
             <strong>Reobs. support</strong>
-            <span class="metric-formula">fraction with judgeable return evidence</span>
-            <p><strong>Applicability gate</strong> — whether a hidden-and-returned test can run, not whether it passes.
+            <span class="metric-formula">how often the target comes back</span>
+            <p><strong>Re-observation</strong> — whether the return can be judged, not whether it is correct.
             </p>
           </article>
           <article class="metric-guide">
             <div class="metric-guide-tag">Stage 3</div>
             <strong>Ret. spatial / state</strong>
-            <span class="metric-formula">conditional on judgeable re-observation</span>
+            <span class="metric-formula">scored only when the return is judgeable</span>
             <p><strong>Returned consistency</strong> — the outcome WRBench is designed to measure (2,073 judgeable
               clips).</p>
           </article>
@@ -2404,13 +2418,12 @@
     <section id="analysis" class="content-section">
       <div class="container">
         <div class="section-header reveal" data-num="05">
-          <p class="section-label">Current diagnosis</p>
+          <p class="section-label">Diagnosis</p>
           <h2 class="section-title">Tracking shots expose the <span class="title-accent">returned-state gap.</span></h2>
         </div>
-        <p class="section-lead reveal">The paper's diagnosis is not that one model loses a leaderboard. Visible quality
-          and re-observation access mostly decide whether the return test is posed; returned-state correctness is a
-          separate capability, and in-place state change is the hard case that scale, richer inputs, and current public
-          training signals do not close.</p>
+        <p class="section-lead reveal">The diagnosis is not that one model loses. The hard part is specific: a model may
+          show the target again but still fail to keep the off-screen change. In-place changes such as folding, tipping,
+          or sitting are especially fragile.</p>
         <div class="evidence-questions reveal">
           <article class="evidence-q">
             <span class="evidence-q-tag">Question 1 · Finding 1</span>
@@ -2556,12 +2569,10 @@
         <div class="analysis-stack stack-purple reveal">
           <div class="analysis-stack-head">
             <span class="kicker">Findings 3–6 · does anything fix it?</span>
-            <h3>No increment of scale, architecture, or training closes the <em>returned-state gap.</em></h3>
-            <p class="read-as"><b>How to read this:</b> the paradigm axis (F3) decides which models can even
-              <em>pose</em> the return test; the twelve Wan-derived models then act as one controlled stress map
-              (F4–F6),
-              each panel varying one increment to ask whether it adds re-observation support or actually preserves the
-              hidden outcome.
+              <h3>No tested increment of scale, architecture, or training closes the <em>returned-state gap.</em></h3>
+              <p class="read-as"><b>How to read this:</b> the left panel asks which model inputs make the return visible.
+                The Wan-family panels then vary scale, architecture, and training signal to ask whether any of them
+                preserve the hidden outcome.
             </p>
           </div>
           <ul class="takeaways takeaways-row">
@@ -2610,11 +2621,11 @@
       <div class="container">
         <div class="section-header reveal" data-num="06">
           <p class="section-label">Cases</p>
-          <h2 class="section-title">More appendix case clips.</h2>
+              <h2 class="section-title">More appendix cases.</h2>
         </div>
-        <p class="section-lead reveal">These exported motion pairs correspond to the appendix case montages in the
-          paper: direction controls judgeability, re-observation does not guarantee a correct return, and in-place
-          state changes remain hard even when returned evidence exists.
+        <p class="section-lead reveal">These clips match appendix montages in the paper. They show three recurring
+          patterns: camera direction controls whether a return can be judged, returning into view does not guarantee a
+          correct state, and in-place changes remain hard.
         </p>
         <div id="video-showcase"></div>
       </div>
@@ -2624,11 +2635,10 @@
       <div class="container">
         <div class="section-header reveal" data-num="07">
           <p class="section-label">Forensics</p>
-          <h2 class="section-title">Frame-level failure forensics.</h2>
+          <h2 class="section-title">Frame-level failure cases.</h2>
         </div>
-        <p class="section-lead reveal">Appendix montages show how <strong>stage-local successes</strong> — readable
-          frames,
-          camera motion, visible action — can still fail at <strong>returned spatial and state consistency</strong>.</p>
+        <p class="section-lead reveal">Appendix montages show how a video can look readable, move the camera, and show
+          visible action, yet still return to the wrong location or state.</p>
         <div class="forensics-grid reveal" id="forensics-grid"></div>
       </div>
     </section>
@@ -2639,12 +2649,9 @@
           <p class="section-label">Method</p>
           <h2 class="section-title">How WRBench measures it.</h2>
         </div>
-        <p class="section-lead reveal">The apparatus behind the numbers: <strong>Natural-25</strong> fixes scene, event,
-          and camera path; <strong>WRBenchLib, the generation-provenance layer in WRBench</strong>, records model input,
-          delivered viewpoint condition, generated video, and provenance; six dimensions
-          separate
-          <strong>visible consistency</strong>, <strong>re-observation support</strong>, and <strong>returned
-            consistency</strong>.
+        <p class="section-lead reveal">WRBench fixes the scene, the event, and the camera path, then keeps enough
+          generation detail to compare very different models fairly. The six checks separate visible consistency,
+          re-finding the target, and preserving the returned state.
         </p>
         <div class="method-grid reveal">
           <article class="panel accent-blue">
@@ -2654,11 +2661,9 @@
               sit, and tip — from <strong>spatial relocation</strong> to <strong>in-place state change</strong>.</p>
           </article>
           <article class="panel accent-cyan">
-            <h3>Generation provenance</h3>
-            <p>The WRBenchLib layer maps each test record to <strong>model input</strong>, <strong>delivered viewpoint condition</strong>,
-              generated video, and <strong>provenance</strong> — so interfaces are compared on the evidence they
-              actually
-              received.</p>
+            <h3>What each model saw</h3>
+            <p>Every generated clip is paired with the exact input condition the model received, so prompt-only,
+              image-conditioned, and video-conditioned systems are compared on the evidence they were actually given.</p>
           </article>
           <article class="panel accent-support">
             <h3>Human calibration</h3>
@@ -2667,9 +2672,9 @@
               automatic evaluators <strong>dimension by dimension</strong>.</p>
           </article>
           <article class="panel accent-gold">
-            <h3>Four condition types</h3>
-            <p><strong>Prompt-only</strong>, <strong>model-inferred</strong>, <strong>geometry-cache</strong>, and
-              <strong>source-video</strong> types carry different amounts of already-seen footage.
+            <h3>Four input routes</h3>
+            <p><strong>Prompt-only</strong>, <strong>model-inferred camera</strong>, <strong>geometry cache</strong>, and
+              <strong>source video</strong> routes carry different amounts of already-seen scene evidence.
             </p>
           </article>
         </div>
@@ -2677,26 +2682,20 @@
         <div class="stage-row reveal" style="margin-top:24px">
           <div class="stage-row-copy">
             <article class="analysis-block" style="margin:0;box-shadow:none;border:0;padding:0">
-              <h3>Each test is an event–view record, not just a clip</h3>
-              <p class="analysis-text">Each test fixes the same initial scene and event, then varies the camera path so
-                evidence stays visible, becomes hidden, or returns. The prompt never reveals the post-return outcome —
-                the
-                generated video itself must carry it:</p>
-              <div class="record-formula">r<sub>i</sub> = ( x<sub>i</sub><sup>0</sup>, e<sub>i</sub>, τ<sub>i</sub>,
-                ν<sub>i</sub>, π<sub>i</sub> )</div>
-              <p class="analysis-text" style="margin-top:14px">In words: initial observation, event, timing, viewpoint
-                change, and prompt. The provenance layer maps every record through a model-specific adapter:</p>
-              <div class="record-formula">z<sub>i,m</sub> = Φ<sub>m</sub>(r<sub>i</sub>) = ( input u, delivered
-                condition d,
-                video v, provenance η )</div>
+              <h3>Each test is more than a clip</h3>
+              <p class="analysis-text">Each test starts from the same scene and event, then changes the camera path so
+                the target either stays visible, becomes hidden, or returns. The prompt does not reveal the final
+                answer; the generated video must carry the off-screen outcome.</p>
+              <p class="analysis-text" style="margin-top:14px">For every model, WRBench keeps the model input, the
+                requested camera path, the generated video, and the scoring evidence together.</p>
               <div class="pipeline-flow">
-                <span class="pipe-node">Event–view record</span>
+                <span class="pipe-node">Scene + event</span>
                 <span class="pipe-arrow">→</span>
-                <span class="pipe-node">Model-specific adapter</span>
+                <span class="pipe-node">Camera path</span>
                 <span class="pipe-arrow">→</span>
-                <span class="pipe-node">Generated video + provenance</span>
+                <span class="pipe-node">Generated video</span>
                 <span class="pipe-arrow">→</span>
-                <span class="pipe-node">Diagnostic profile</span>
+                <span class="pipe-node">Six checks</span>
               </div>
             </article>
           </div>
@@ -2705,8 +2704,8 @@
               <div class="figure-scroll">
                 <img src="assets/overview.png" alt="WRBench method overview">
               </div>
-              <p class="caption figure-caption-center">WRBench pipeline: requested-camera precision, prompt-camera
-                alignment, visual integrity, visible consistency, re-observation support, and returned consistency.</p>
+              <p class="caption figure-caption-center">WRBench pipeline: camera following, visible quality, visible
+                consistency, re-observation, and returned consistency are measured separately.</p>
             </div>
           </div>
         </div>
@@ -2721,7 +2720,7 @@
 
         <div class="section-header reveal" style="margin-top:42px" data-num="">
           <p class="section-label">Dimensions</p>
-          <h2 class="section-title">Six diagnostic metrics plus a re-observation gate.</h2>
+          <h2 class="section-title">Six checks, with return scored only when visible.</h2>
         </div>
         <div class="dimension-grid reveal" id="dimension-grid"></div>
       </div>
@@ -2731,11 +2730,11 @@
       <div class="container">
         <div class="section-header reveal" data-num="09">
           <p class="section-label">Human</p>
-          <h2 class="section-title">Human calibration grounds the diagnostic profile.</h2>
+          <h2 class="section-title">Human calibration grounds the scores.</h2>
         </div>
         <p class="section-lead reveal"><strong>2,547</strong> deduplicated annotator verdicts over
           <strong>1,156</strong>
-          released comparison pairs validate each WRBench dimension separately — not one collapsed preference score.
+          released comparison pairs validate each WRBench check separately — not one collapsed preference score.
           Agreement uses prevalence-robust <strong>AC1</strong>; rank <strong>ρ</strong> is Spearman alignment between
           the
           automatic margin and the ordered human label.
@@ -2776,8 +2775,17 @@
     <footer class="footer reveal">
       <div class="container" style="display:flex;justify-content:space-between;gap:18px;flex-wrap:wrap;width:100%">
         <span>WRBench · Current World Models Lack a Persistent State Core · <a href="https://arxiv.org/abs/2606.20545">arXiv:2606.20545</a></span>
-        <span><a href="https://github.com/JinPLu/WRBench">GitHub</a> · <a href="https://huggingface.co/WRBench">Hugging Face</a> · <a
-            href="mailto:jinplu@mail.ustc.edu.cn">Contact</a></span>
+        <span class="footer-links"><a href="https://github.com/JinPLu/WRBench">GitHub</a> · <a
+            href="https://huggingface.co/WRBench">Hugging Face</a> · <a href="mailto:jinplu@mail.ustc.edu.cn">Contact</a>
+          <span class="footer-traffic">
+            ·
+            <a class="traffic-badge" href="https://visitor-badge.laobi.icu" target="_blank" rel="noopener"
+              aria-label="Page visit counter">
+              <img alt="Page visit counter"
+                src="https://visitor-badge.laobi.icu/badge?page_id=JinPLu.WRBench&left_text=visits&left_color=%238C96A5&right_color=%233F548A">
+            </a>
+          </span>
+        </span>
       </div>
     </footer>
   </main>
@@ -2786,8 +2794,8 @@
     const dimensions = [
       { id: "D1-CamPrec", title: "Cam Prec.", body: "<strong>Requested-camera precision</strong> — how closely the delivered path matches the requested trajectory (VGGT-Omega)." },
       { id: "D1-CamAlign", title: "Cam Align.", body: "<strong>Prompt-camera alignment</strong> for prompt-only APIs — camera-intent match, not strict trajectory precision." },
-      { id: "D2", title: "Integ.", body: "<strong>Visual integrity</strong> — readable, coherent frames (DINOv2 proxy). <strong>Not</strong> world-state correctness." },
-      { id: "Support", title: "Reobs. support", body: "<strong>Re-observation support</strong> — fraction of outputs with judgeable hidden-and-returned evidence. Applicability, not correctness." },
+      { id: "D2", title: "Integ.", body: "<strong>Visual integrity</strong> — whether the frames are readable and coherent. <strong>Not</strong> world-state correctness." },
+      { id: "Support", title: "Reobs. support", body: "<strong>Re-observation support</strong> — how often the hidden target comes back in judgeable form. Visibility, not correctness." },
       { id: "D3", title: "Vis. spatial", body: "<strong>Visible spatial consistency</strong> while the target remains on screen." },
       { id: "D4", title: "Vis. state", body: "<strong>Visible state consistency</strong> for action and state evidence while observable." },
       { id: "D5-D6", title: "Ret. spatial/state", body: "<strong>Returned spatial and state consistency</strong>, scored only after judgeable re-observation (2,073 clips)." }
@@ -2797,32 +2805,32 @@
       {
         tag: "Finding 01",
         head: "World consistency must be measured on return, not read off frame quality",
-        body: "Visible-fidelity and re-observation-access scores form their own correlated tracking shot blocks but predict <strong>returned-state correctness</strong> only weakly, so returned-state consistency is a distinct capability that benchmarks and models must target directly rather than infer from image quality or camera precision."
+        body: "Readable frames and a successful return into view do not reliably predict <strong>returned-state correctness</strong>. The returned state has to be measured directly."
       },
       {
         tag: "Finding 02",
         head: "World models struggle with object state changes, while spatial changes help them leverage pretrained motion priors to return the object more reliably",
-        body: "Object <em>transformation</em>, not trajectory, is the open problem. Factoring every Natural-25 event into a spatial change where the object is relocated and an in-place state change where it transforms where it sits, e.g. folding or tipping, a move hands the model a new coordinate to track and the static scene to anchor against, so the object returns roughly right, whereas an <strong>in-place change</strong> offers no such anchor and leaves the altered object to drift and smear on return."
+        body: "Moving an object gives the model a new place to track. Changing an object in place, such as folding a blanket or tipping a cup, gives no new anchor, so the altered state often drifts, smears, or resets on return."
       },
       {
         tag: "Finding 03",
         head: "World-model controllability has mastered static re-rendering, not dynamic evolution",
-        body: "Access rises with how much already-seen footage a paradigm carries, but every paradigm only replays the recorded scene, so the next controllability target is off-screen <em>dynamics</em>, not just viewpoint."
+        body: "Models that receive more scene context are better at bringing the scene back into view. They still mostly replay what was already seen, rather than evolving what happened while hidden."
       },
       {
         tag: "Finding 04",
         head: "Regular video-supervised scaling will not deliver world-state evolution, so it has to be designed in",
-        body: "Larger Wan backbones add re-observation access while the 2.1→2.2 upgrade adds visible fidelity, which are the observable axes such training already optimizes, yet scaling Wan 1.3B→14B lowers conditional <strong>returned state</strong> from 0.66→0.62 on the clips with judgeable returned evidence, so endpoint persistence is a target for architecture and training rather than for more parameters or standard video data."
+        body: "Larger Wan backbones make it easier to see the target again, and newer versions improve visible quality. But scaling 1.3B→14B lowers conditional <strong>returned state</strong> from 0.66→0.62, so persistence is not solved by scale alone."
       },
       {
         tag: "Finding 05",
         head: "World models need a <em>what</em>-memory, not just a <em>where</em>-memory",
-        body: "Every architecture caches geometry, appearance, or motion to re-render <em>where</em> the scene was, so how the camera is <em>encoded</em> is second-order, while the missing, highest-leverage component is a <strong>state writer</strong> that records <em>what</em> changed while hidden."
+        body: "Current systems are better at remembering <em>where</em> to look than <em>what</em> changed. The missing piece is a state memory that records the off-screen outcome."
       },
       {
         tag: "Finding 06",
         head: "Endpoint persistence is an unwritten training objective, so write it with a long-to-short recipe",
-        body: "No <em>public</em> loss or documented post-training stage supervises the unobserved outcome, so we propose a <strong>long-to-short</strong> recipe: learn persistence on long horizons, then add explicit camera-execution supervision."
+        body: "No public training recipe directly supervises the unobserved outcome. The paper proposes a <strong>long-to-short</strong> recipe: first learn persistence over longer horizons, then add explicit camera-execution supervision."
       }
     ];
 
@@ -2852,18 +2860,18 @@
 
     const videoCases = [
       {
-        title: "A · Finding 1 — camera direction changes judgeability",
-        subtitle: "Wan-Fun 2.1 · kitchen bowl placement · object relocated (spatial-only event, tier T1)",
+        title: "A · Camera direction changes what can be judged",
+        subtitle: "Wan-Fun 2.1 · kitchen bowl placement · left-to-right vs right-to-left camera motion",
         caseFrame: "assets/cases/case_direction_wanfun21_kitchen_bowl_spatial_lr_vs_rl.png",
         conclusion: "Camera pan direction decides whether <strong>returned evidence exists</strong>; it does not by itself solve returned-state correctness.",
         panels: [
-          { model: "Wan-Fun 2.1 · pan left-to-right", video: "videos/case_a_yaw_lr.mp4", tone: "neutral", badge: "No return test", note: "Subject dragged with camera; returned consistency cannot be scored." },
+          { model: "Wan-Fun 2.1 · pan left-to-right", video: "videos/case_a_yaw_lr.mp4", tone: "neutral", badge: "No return test", note: "Subject stays with the camera, so there is no hidden-then-returned state to judge." },
           { model: "Wan-Fun 2.1 · pan right-to-left", video: "videos/case_a_yaw_rl.mp4", tone: "pass", badge: "Returned state 0.71", note: "Subject leaves and re-enters; judgeable returned evidence." }
         ]
       },
       {
-        title: "B · Finding 1 — access is not a correct return",
-        subtitle: "Loading dock box placement · object moved and changed (full event, tier T2_div_b) · pan right-to-left",
+        title: "B · Seeing the target again is not enough",
+        subtitle: "Loading dock box placement · moved and changed object · right-to-left camera motion",
         caseFrame: "assets/cases/case_access_returned_consistency_loadingdock_place_spatia_vs_inspatio.png",
         conclusion: "Both rows create judgeable re-observation, but only <strong>InSpatio</strong> returns the box correctly placed on the pallet.",
         panels: [
@@ -2872,8 +2880,8 @@
         ]
       },
       {
-        title: "C · Finding 2 — in-place state remains hard",
-        subtitle: "Apartment lobby sofa sit · object changed in place (state-only event, tier T2_div_a) · pan right-to-left",
+        title: "C · In-place state remains hard",
+        subtitle: "Apartment lobby sofa sit · in-place state change · right-to-left camera motion",
         caseFrame: "assets/cases/case_stateonly_apartment_sofa_wanfun_vs_wan27.png",
         conclusion: "The clip pair is a readable state-only contrast; the broader paper claim comes from the event-factor analysis, where in-place changes are consistently harder than relocation.",
         panels: [
@@ -2897,12 +2905,12 @@
       {
         title: "Why re-observation support depends on the camera path",
         image: "assets/forensics/forensic_access_direction.png",
-        body: "The same scene can become judgeable or unjudgeable under opposite <strong>yaw directions</strong>; timid prompt-only motion can also keep the target framed, so no hidden-then-returned test is created."
+        body: "The same scene can become judgeable or unjudgeable under opposite camera directions; small prompt-only motion can also keep the target framed, so no hidden-then-returned test is created."
       },
       {
-        title: "All condition types fail on the same in-place case",
+        title: "Every input route can fail on the same in-place case",
         image: "assets/forensics/forensic_crossinterface_fold.png",
-        body: "Prompt-only, model-inferred, source-video, and geometry-cache types each miss the <strong>unobserved state change</strong> on a shared fold event."
+        body: "Prompt-only, model-inferred camera, source-video, and geometry-cache routes each miss the <strong>unobserved state change</strong> on a shared fold event."
       },
       {
         title: "High scores, frame-level failures",
@@ -2912,10 +2920,10 @@
     ];
 
     const groupLabels = {
-      "source-video": "Source-video condition type",
-      "geometry-cache": "Geometry-cache condition type",
-      "model-inferred": "Model-inferred condition type",
-      "prompt-only": "Prompt-only condition type"
+      "source-video": "Source-video inputs",
+      "geometry-cache": "Geometry-cache inputs",
+      "model-inferred": "Model-inferred camera",
+      "prompt-only": "Prompt-only APIs"
     };
 
     const groupOrder = ["source-video", "geometry-cache", "model-inferred", "prompt-only"];

@@ -13,6 +13,12 @@ served by **GitHub Pages** from this `docs/` folder at
 - `.nojekyll` — disables Jekyll so `assets/` and underscores are served verbatim.
 - `robots.txt` — allows indexing.
 
+## Traffic Counter
+
+The footer embeds a lightweight `visitor-badge.laobi.icu` SVG badge for page
+visits. It works on GitHub Pages without JavaScript or a backend, but it is a
+public external hit counter rather than strict unique-user analytics.
+
 ## Local preview
 
 ```bash
