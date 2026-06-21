@@ -35,6 +35,7 @@ def generate_t2i_scene(
     temperature: float = 0.2,
     provider: str | None = None,
     api_key: str | None = None,
+    base_url: str | None = None,
     llm_call: Any | None = None,
 ) -> str:
     """Generate ``t2i_scene`` caption for a family record via LLM.
@@ -57,6 +58,7 @@ def generate_t2i_scene(
             temperature=temperature,
             provider=provider,
             api_key=api_key,
+            base_url=base_url,
         )
 
     if isinstance(result, str):
@@ -75,6 +77,7 @@ def enrich_family_with_t2i_scene(
     temperature: float = 0.2,
     provider: str | None = None,
     api_key: str | None = None,
+    base_url: str | None = None,
     llm_call: Any | None = None,
 ) -> dict[str, Any]:
     """Return a copy of *family* with ``t2i_scene`` populated."""
@@ -85,6 +88,7 @@ def enrich_family_with_t2i_scene(
         temperature=temperature,
         provider=provider,
         api_key=api_key,
+        base_url=base_url,
         llm_call=llm_call,
     )
     return out

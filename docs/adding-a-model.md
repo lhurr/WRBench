@@ -53,7 +53,7 @@ Create `src/wrbench/models/<key>.json` where `<key>` is the canonical model iden
 | `key` | string | yes | Must be non-empty; must be unique across all JSON files |
 | `aliases` | list of strings | no | Additional names that resolve to this model; normalised to lowercase-hyphen |
 | `status` | string | yes | Must be `"active"` or `"deferred"` |
-| `input_kind` | string | yes for active | Must be `"image"` (TI2V) or `"source_video"` (V2V) |
+| `input_kind` | string | yes for active | Must be `"image"` (TI2V), `"source_video"` (TV2V), or `"none"` (T2V / prompt plus controls) |
 | `adapter` | string | yes for active | Logical name of the adapter; used in sidecars for traceability |
 | `payload_type` | string | no | Identifies the native payload format in sidecars and `model_control_samples.json` |
 | `amplitude` | object | yes for active | See amplitude sub-fields below |
@@ -64,11 +64,11 @@ Create `src/wrbench/models/<key>.json` where `<key>` is the canonical model iden
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `rotation_gain` | float | no (default 1.0) | Scales `degrees` into the model's rotation range |
+| `rotation_gain` | float | no | Scales `degrees` into the model's rotation range; write it explicitly in public model records |
 | `translation_gain` | float | yes | Scales `amount` into the model's translation range |
 | `max_amount` | float | yes | Soft ceiling on translated distance in the model's coordinate space |
 | `translation_unit` | string | yes | Must be one of the values in `VALID_TRANSLATION_UNITS` (see below) |
-| `calibration_status` | string | no (default `"uncalibrated"`) | How gains were determined; free string, e.g. `"initial_manual"` |
+| `calibration_status` | string | no | How gains were determined; free string, e.g. `"initial_manual"` |
 | `metadata` | object | no | Additional calibration notes; arbitrary key-value pairs |
 
 #### Valid `translation_unit` values
@@ -89,7 +89,7 @@ These are enforced by `registry.py`; loading a JSON with an unsupported value ra
 
 #### Deferred models
 
-Set `"status": "deferred"` for planned but not yet implemented models. Deferred models do not require `input_kind`, `adapter`, or a valid `amplitude` block — the registry supplies defaults. Deferred models cannot be registered by adapters and raise an error if passed to `compile_camera`.
+Set `"status": "deferred"` for planned but not yet implemented models. Deferred models are registry placeholders: do not register them from adapters, and do not pass them to `compile_camera`.
 
 ---
 
@@ -160,7 +160,7 @@ class MyModelAdapter:
     ...
 ```
 
-The keys must already exist in `src/wrbench/models/` and must be `"active"` (deferred models cannot be registered). The decorator resolves aliases, so you can pass an alias — but using the canonical key is clearer.
+The keys must already exist in `src/wrbench/models/` and must be `"active"` (deferred models cannot be registered). Register the canonical key from the model JSON.
 
 ### `compile` contract
 
@@ -206,4 +206,4 @@ wrbench doctor --all
 
 ## Design note
 
-WRBench collapses per-model configuration into **one JSON + one Python module + one import line**, with a single validation pass at load time. Alias maps, capability flags, amplitude calibration, and adapter wiring all live in the model JSON; `wrbench doctor` validates the pair at load time.
+WRBench collapses per-model configuration into **one JSON + one Python module + one import line**, with a single validation pass at load time. Capability flags, amplitude calibration, and adapter wiring all live in the model JSON; `wrbench doctor` validates the pair at load time.

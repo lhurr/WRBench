@@ -8,6 +8,7 @@ import so the registry is fully populated.
 
 from __future__ import annotations
 
+import inspect
 from pathlib import Path
 from typing import Callable, Protocol
 
@@ -78,13 +79,17 @@ def compile_camera_payload(
     num_frames: int,
     work_dir: str | Path | None = None,
     device: str | None = None,
+    prompt: str = "",
 ) -> CameraPayload:
-    return adapter_for_model(model_name).compile(
-        trajectory,
-        model_name=model_name,
-        width=width,
-        height=height,
-        num_frames=num_frames,
-        work_dir=work_dir,
-        device=device,
-    )
+    adapter = adapter_for_model(model_name)
+    kwargs = {
+        "model_name": model_name,
+        "width": width,
+        "height": height,
+        "num_frames": num_frames,
+        "work_dir": work_dir,
+        "device": device,
+    }
+    if "prompt" in inspect.signature(adapter.compile).parameters:
+        kwargs["prompt"] = prompt
+    return adapter.compile(trajectory, **kwargs)

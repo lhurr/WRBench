@@ -34,4 +34,4 @@ wrbench.compile_camera(model="wan21-fun-1p3b-cam", camera="yaw:left:60@40,yaw:ri
 
 WRBench compiles the model-native payload and sidecars locally. Real video generation requires the model's own environment (weights, GPU, venv). See the upstream model repository and use the compiled `.payload.json` / sidecars as inputs.
 
-Backend hook: `wrbench.backends.GenerationBackend` (Phase 3 scaffold).
+Use `wrbench doctor --model wan21-fun-1p3b-cam` to inspect the current backend status and required runtime fields.

@@ -12,6 +12,7 @@ from wrbench.adapters.base import register
 from wrbench.contracts import (
     build_command_template,
     require_execution_contract,
+    require_float,
     require_int,
     require_mapping,
     require_str,
@@ -213,7 +214,7 @@ class MatrixGame3Adapter:
         _validate_profile(target, key=key, width=width, height=height, benchmark_profile=benchmark_profile)
 
         profile = _profile_from_trajectory(target)
-        cam_value = float(runtime_parameters.get("camera_value", 0.1))
+        cam_value = require_float(runtime_parameters, "camera_value")
         num_iterations = require_int(official_profile, "num_iterations")
         segments = _matrix_game3_clip_segments(profile, num_iterations=num_iterations, cam_value=cam_value)
         if sum(int(segment["frames"]) for segment in segments) != target.frame_count:
@@ -351,7 +352,8 @@ class MatrixGame2Adapter:
         profile = _profile_from_trajectory(target)
         keyboard = np.zeros((target.frame_count, 4), dtype=np.float32)
         mouse = np.zeros((target.frame_count, 2), dtype=np.float32)
-        cam_value = float(runtime_parameters.get("camera_value", 0.1))
+        cam_value = require_float(runtime_parameters, "camera_value")
+        mode = require_str(runtime_parameters, "mode")
         if profile in {"yaw_LR", "yaw_RL"}:
             sign = -1.0 if profile == "yaw_LR" else 1.0
             mouse[:, 1] = _go_return_values(target.frame_count, sign=sign, peak=cam_value)
@@ -382,7 +384,7 @@ class MatrixGame2Adapter:
                 "input_contract": {
                     "keyboard_condition_npy": str(keyboard_npy),
                     "mouse_condition_npy": str(mouse_npy),
-                    "mode": runtime_parameters.get("mode", "universal"),
+                    "mode": mode,
                     "keyboard_shape": list(keyboard.shape),
                     "mouse_shape": list(mouse.shape),
                     "segments": segments,
@@ -418,7 +420,7 @@ class MatrixGame2Adapter:
                 certification_kind="native_action_condition_payload",
                 model_payload_summary={
                     "entrypoint": entrypoint,
-                    "mode": runtime_parameters.get("mode", "universal"),
+                    "mode": mode,
                     "keyboard_shape": list(keyboard.shape),
                     "mouse_shape": list(mouse.shape),
                     "segments": segments,
@@ -459,13 +461,13 @@ class ATIWan21Adapter:
         target, amp = model_target_trajectory(trajectory, key, num_frames)
         _validate_profile(target, key=key, width=width, height=height, benchmark_profile=benchmark_profile)
 
-        raw_track_frames = int(runtime_parameters.get("raw_track_frames", 121))
-        point_grid = int(runtime_parameters.get("point_grid", 4))
+        raw_track_frames = require_int(runtime_parameters, "raw_track_frames")
+        point_grid = require_int(runtime_parameters, "point_grid")
         profile = _profile_from_trajectory(target)
         xs = np.linspace(width * 0.25, width * 0.75, point_grid, dtype=np.float32)
         ys = np.linspace(height * 0.25, height * 0.75, point_grid, dtype=np.float32)
         base = np.array([(x, y) for y in ys for x in xs], dtype=np.float32)
-        peak = float(runtime_parameters.get("track_peak_fraction", 0.12)) * float(width)
+        peak = require_float(runtime_parameters, "track_peak_fraction") * float(width)
         sign = -1.0 if profile in {"yaw_LR", "pan_LR"} else 1.0
         offsets = np.zeros((raw_track_frames,), dtype=np.float32)
         if profile != "static":

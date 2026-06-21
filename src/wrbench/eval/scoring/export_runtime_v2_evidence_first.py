@@ -87,8 +87,10 @@ def _bool_or_false(value: Any) -> bool:
     return bool(value) if isinstance(value, bool) else False
 
 
-def _evidence_value(evidence: dict[str, Any] | None, key: str, default: Any = None) -> Any:
-    return default if evidence is None else evidence.get(key, default)
+def _evidence_value(evidence: dict[str, Any] | None, key: str, missing_value: Any = None) -> Any:
+    if evidence is None:
+        return missing_value
+    return evidence.get(key, missing_value)
 
 
 def _shared_oov_gate(evidence: dict[str, Any] | None) -> tuple[bool, str | None]:
@@ -133,6 +135,10 @@ def _require_raw_oov_score_fields(row: dict[str, Any]) -> None:
         raise ValueError(f"missing required raw OOV score field(s) for video_id={video_id}: {missing}")
 
 
+def _manifest_declares_no_oov(row: dict[str, Any]) -> bool:
+    return row.get("oov_gap") == "none"
+
+
 def attach_evidence(row: dict[str, Any], evidence: dict[str, Any] | None, *, policy: str) -> dict[str, Any]:
     out = deepcopy(row)
     _require_raw_oov_score_fields(out)
@@ -150,6 +156,13 @@ def attach_evidence(row: dict[str, Any], evidence: dict[str, Any] | None, *, pol
     if evidence is not None and "evidence_shared_oov_applicable" not in evidence and "shared_oov_applicable" not in evidence:
         shared_app = bool(d5_app and d6_app)
         shared_reason = None if shared_app else d5_reason or d6_reason or "unclear"
+    if _manifest_declares_no_oov(out):
+        shared_app = False
+        shared_reason = "no_oov"
+        d5_app = False
+        d5_reason = "no_oov"
+        d6_app = False
+        d6_reason = "no_oov"
 
     out["runtime_v2_evidence_export_policy"] = policy
     out["runtime_v2_evidence_schema"] = _evidence_value(evidence, "schema_version")

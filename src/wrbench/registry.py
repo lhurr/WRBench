@@ -2,7 +2,7 @@
 
 Each model is declared by exactly one JSON file in ``wrbench/models/<key>.json``.
 That file carries everything the toolkit needs: canonical key, aliases, input
-kind (image vs source video), adapter name, amplitude calibration, capabilities,
+kind (image vs source video vs no extra media), adapter name, amplitude calibration, capabilities,
 and status. This replaces the historical multi-file config chain (separate alias
 map, contracts, capabilities, amplitude, shell lists, run specs) with one
 authoritative record per model, validated on load.
@@ -22,7 +22,7 @@ from typing import Any
 
 MODELS_DIR = Path(__file__).resolve().parent / "models"
 
-VALID_INPUT_KINDS = {"image", "source_video"}
+VALID_INPUT_KINDS = {"image", "none", "source_video"}
 
 VALID_TRANSLATION_UNITS = {
     "canonical_scene",
@@ -63,10 +63,10 @@ class ModelRecord:
     amplitude: CameraAmplitude
     capabilities: dict[str, Any]
     notes: str
-    default_width: int = 832
-    default_height: int = 480
-    default_frames: int = 81
-    default_fps: int = 16
+    default_width: int
+    default_height: int
+    default_frames: int
+    default_fps: int
     execution_contract: dict[str, Any] | None = None
 
     @property
@@ -78,21 +78,42 @@ def _norm(name: str) -> str:
     return str(name).strip().lower().replace("_", "-")
 
 
+def _require_str(record: dict[str, Any], field: str, *, key: str) -> str:
+    value = record.get(field)
+    if not isinstance(value, str) or not value:
+        raise RegistryError(f"{key}: missing required string field '{field}'")
+    return value
+
+
+def _require_int(record: dict[str, Any], field: str, *, key: str) -> int:
+    value = record.get(field)
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise RegistryError(f"{key}: missing required integer field '{field}'")
+    return int(value)
+
+
+def _require_float(record: dict[str, Any], field: str, *, key: str) -> float:
+    value = record.get(field)
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        raise RegistryError(f"{key}: missing required numeric field '{field}'")
+    return float(value)
+
+
 def _parse_amplitude(key: str, record: dict[str, Any]) -> CameraAmplitude:
     amp = record.get("amplitude")
     if not isinstance(amp, dict):
         raise RegistryError(f"{key}: missing 'amplitude' object")
-    unit = str(amp.get("translation_unit") or "")
+    unit = _require_str(amp, "translation_unit", key=key)
     if unit not in VALID_TRANSLATION_UNITS:
         raise RegistryError(f"{key}: unsupported translation_unit {unit!r}")
     try:
         return CameraAmplitude(
             model_key=key,
-            rotation_gain=float(amp.get("rotation_gain", 1.0)),
-            translation_gain=float(amp["translation_gain"]),
-            max_amount=float(amp["max_amount"]),
+            rotation_gain=_require_float(amp, "rotation_gain", key=key),
+            translation_gain=_require_float(amp, "translation_gain", key=key),
+            max_amount=_require_float(amp, "max_amount", key=key),
             translation_unit=unit,
-            calibration_status=str(amp.get("calibration_status") or "uncalibrated"),
+            calibration_status=_require_str(amp, "calibration_status", key=key),
             metadata=dict(amp.get("metadata", {}) or {}),
         )
     except (KeyError, TypeError, ValueError) as exc:
@@ -103,7 +124,7 @@ def _parse_record(path: Path, payload: dict[str, Any]) -> ModelRecord:
     key = payload.get("key")
     if not isinstance(key, str) or not key:
         raise RegistryError(f"{path.name}: missing 'key'")
-    status = str(payload.get("status") or "active")
+    status = _require_str(payload, "status", key=key)
     if status not in {"active", "deferred"}:
         raise RegistryError(f"{key}: status must be 'active' or 'deferred'")
     input_kind = str(payload.get("input_kind") or "")
@@ -131,14 +152,14 @@ def _parse_record(path: Path, payload: dict[str, Any]) -> ModelRecord:
         status=status,
         input_kind=input_kind,
         adapter=adapter,
-        payload_type=str(payload.get("payload_type") or ""),
+        payload_type=_require_str(payload, "payload_type", key=key) if status == "active" else str(payload.get("payload_type") or ""),
         amplitude=amplitude,
         capabilities=dict(payload.get("capabilities", {}) or {}),
         notes=str(payload.get("notes") or ""),
-        default_width=int(payload.get("default_width", 832)),
-        default_height=int(payload.get("default_height", 480)),
-        default_frames=int(payload.get("default_frames", 81)),
-        default_fps=int(payload.get("default_fps", 16)),
+        default_width=_require_int(payload, "default_width", key=key) if status == "active" else int(payload.get("default_width", 0)),
+        default_height=_require_int(payload, "default_height", key=key) if status == "active" else int(payload.get("default_height", 0)),
+        default_frames=_require_int(payload, "default_frames", key=key) if status == "active" else int(payload.get("default_frames", 0)),
+        default_fps=_require_int(payload, "default_fps", key=key) if status == "active" else int(payload.get("default_fps", 0)),
         execution_contract=dict(execution_contract) if execution_contract else None,
     )
 

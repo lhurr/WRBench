@@ -241,9 +241,9 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--output_dir", required=True)
     parser.add_argument("--vggt_repo", "--vggt-repo", dest="vggt_repo", required=True)
     parser.add_argument("--checkpoint", required=True)
-    parser.add_argument("--device", default="cuda")
-    parser.add_argument("--image-resolution", type=int, default=512)
-    parser.add_argument("--preprocess-mode", choices=("balanced", "max_size"), default="balanced")
+    parser.add_argument("--device", required=True)
+    parser.add_argument("--image-resolution", type=int, required=True)
+    parser.add_argument("--preprocess-mode", choices=("balanced", "max_size"), required=True)
     parser.add_argument("--max_frames", "--max-frames", dest="max_frames", type=int)
     return parser.parse_args(argv)
 

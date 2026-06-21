@@ -273,7 +273,7 @@ def install_p25_overlay(repo_root: Path) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run Qwen3.5 current P25/P22 probe scorer")
-    parser.add_argument("--repo-root", type=Path, default=Path(__file__).resolve().parents[2])
+    parser.add_argument("--repo-root", type=Path, required=True)
     parser.add_argument("runner_args", nargs=argparse.REMAINDER)
     args = parser.parse_args(argv)
     runner_args = args.runner_args

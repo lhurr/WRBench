@@ -83,12 +83,18 @@ from wrbench.datasets import (
     natural25_first_frame_path,
     natural25_first_frames_dir,
     natural25_first_frames_manifest_path,
+    natural25_legacy_variants_path,
+    natural25_t2v_event_tails_path,
     natural25_variants_path,
+    published_t2v_results_json,
 )
 from wrbench.eval.runtime import contract_path
+from wrbench.t2v import validate_subject_anchored_prompt
 
 families = load_natural25_families()
 variants = list(load_jsonl(natural25_variants_path()))
+legacy_variants = list(load_jsonl(natural25_legacy_variants_path()))
+t2v_event_tails = {row["variant_id"]: row["t2v_event_tail"] for row in load_jsonl(natural25_t2v_event_tails_path())}
 manifest = json.loads(natural25_first_frames_manifest_path().read_text(encoding="utf-8"))
 frames = sorted(natural25_first_frames_dir().glob("*.png"))
 missing = [family_id for family_id in families if not natural25_first_frame_path(family_id).is_file()]
@@ -96,10 +102,24 @@ manifest_ids = {row["family_id"] for row in manifest}
 
 assert len(families) == 25, len(families)
 assert len(variants) == 400, len(variants)
+assert len(legacy_variants) == 400, len(legacy_variants)
+assert len(t2v_event_tails) == 400, len(t2v_event_tails)
 assert len(manifest) == 25, len(manifest)
 assert len(frames) == 25, len(frames)
 assert not missing, missing
 assert manifest_ids == set(families), sorted(set(families) ^ manifest_ids)
+assert natural25_legacy_variants_path().is_file(), natural25_legacy_variants_path()
+assert published_t2v_results_json().is_file(), published_t2v_results_json()
+legacy_by_id = {row["variant_id"]: row["ti2v_prompt"] for row in legacy_variants}
+active_by_id = {row["variant_id"]: row["ti2v_prompt"] for row in variants}
+assert active_by_id == legacy_by_id
+bad_t2v_tails = [
+    row["variant_id"]
+    for row in variants
+    if row["oov_gap"] == "none"
+    and not validate_subject_anchored_prompt(f"Scene. background. {t2v_event_tails[row['variant_id']]}")
+]
+assert not bad_t2v_tails, bad_t2v_tails[:5]
 
 print(
     "models", len(wrbench.list_models()),

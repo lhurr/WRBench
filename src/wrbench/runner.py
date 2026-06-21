@@ -2,10 +2,10 @@
 
 ``compile_camera`` is the single function that turns a frame-action camera script
 into a model-native payload plus auditable sidecars, for any supported model.
-Input kind (image for TI2V, source video for V2V) is resolved from the registry,
-so callers do not branch on the model family. By default it runs in ``dry_run``
-mode: it compiles the payload and writes sidecars without invoking any heavy
-model pipeline (no weights, no GPU). Real generation is wired through optional
+Input kind (image for TI2V, source video for V2V, or no extra media for T2V)
+is resolved from the registry, so callers do not branch on the model family.
+With ``dry_run=True`` it compiles the payload and writes sidecars without
+invoking any heavy model pipeline. Real generation is wired through configured
 backends (see ``wrbench.backends``).
 """
 
@@ -20,9 +20,17 @@ from wrbench.adapters import compile_camera_payload  # noqa: F401 ensures adapte
 from wrbench.adapters._utils import unified_sidecar_extra
 from wrbench.builder import build_camera_trajectory
 from wrbench.registry import canonical_model_key, input_kind, model_record
+from wrbench.runtime import load_runtime_config
 
 
-def _require_inputs(key: str, image: str | None, source_video: str | None) -> None:
+def _require_inputs(
+    key: str,
+    image: str | None,
+    source_video: str | None,
+    *,
+    prompt: str = "",
+    dry_run: bool = True,
+) -> None:
     kind = input_kind(key)
     if kind == "image":
         if not image:
@@ -30,8 +38,17 @@ def _require_inputs(key: str, image: str | None, source_video: str | None) -> No
     elif kind == "source_video":
         if not source_video:
             raise ValueError(f"{key} is a source-video/V2V model and requires source_video=...")
+    elif kind == "none":
+        if image or source_video:
+            raise ValueError(f"{key} does not use image= or source_video=; pass prompt=... for text conditioning")
+        if not dry_run and not str(prompt).strip():
+            raise ValueError(f"{key} is a prompt-only model and requires prompt=... for real generation")
     else:
         raise ValueError(f"{key} has unknown input_kind {kind!r}")
+    contract = model_record(key).execution_contract or {}
+    policy = contract.get("wrbench_policy") if isinstance(contract.get("wrbench_policy"), dict) else {}
+    if not dry_run and bool(policy.get("requires_prompt")) and not str(prompt).strip():
+        raise ValueError(f"{key} requires prompt=... for real generation")
 
 
 def _sidecar_metadata(key: str, payload: Any, camera: str, output_path: Path) -> dict[str, Any]:
@@ -107,7 +124,9 @@ def compile_camera(
     height: int | None = None,
     fps: int | None = None,
     num_frames: int | None = None,
+    camera_type: str | None = None,
     work_dir: str | Path | None = None,
+    runtime_config: str | Path | None = None,
     dry_run: bool = True,
 ) -> dict[str, Any]:
     """Compile a camera script into a model payload and write sidecars.
@@ -118,7 +137,7 @@ def compile_camera(
 
     key = canonical_model_key(model)
     record = model_record(key)
-    _require_inputs(key, image, source_video)
+    _require_inputs(key, image, source_video, prompt=prompt, dry_run=dry_run)
     width = int(width if width is not None else record.default_width)
     height = int(height if height is not None else record.default_height)
     fps = int(fps if fps is not None else record.default_fps)
@@ -131,7 +150,7 @@ def compile_camera(
         camera_str = str(camera)
         script = parse_camera_script(camera_str, fps=fps)
     frames = int(num_frames if num_frames is not None else record.default_frames)
-    trajectory = build_camera_trajectory(script, width=width, height=height, fps=fps)
+    trajectory = build_camera_trajectory(script, width=width, height=height, fps=fps, camera_type=camera_type)
     payload = compile_camera_payload(
         trajectory,
         model_name=key,
@@ -139,6 +158,7 @@ def compile_camera(
         height=height,
         num_frames=frames,
         work_dir=work_dir or Path(out).parent,
+        prompt=prompt,
     )
     out_path = Path(out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -168,7 +188,13 @@ def compile_camera(
         from wrbench.backends.base import GenerationRequest
         from wrbench.backends.registry import resolve_backend
 
-        backend = resolve_backend(key)
+        runtime = load_runtime_config(Path(runtime_config)) if runtime_config is not None else None
+        backend = resolve_backend(key, runtime=runtime)
+        if getattr(backend, "name", "") == "dry_run":
+            raise RuntimeError(
+                f"Real generation requested for {key!r} but only the dry-run backend is available. "
+                "Configure wrbench.runtime.json or use dry_run=True."
+            )
         if hasattr(backend, "available_for"):
             ok, reason = backend.available_for(key)  # type: ignore[attr-defined]
         else:

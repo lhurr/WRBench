@@ -3327,7 +3327,9 @@ class LocalQwen3VLVideoEvidenceRunner:
         self.processor = AutoProcessor.from_pretrained(
             str(model_path), trust_remote_code=True, local_files_only=True
         )
-        video_backend = os.environ.get("WORLD_STATE_VIDEO_BACKEND", "decord").strip()
+        video_backend = os.environ["WORLD_STATE_VIDEO_BACKEND"].strip()
+        if not video_backend:
+            raise RuntimeError("WORLD_STATE_VIDEO_BACKEND is required")
         video_processor = getattr(self.processor, "video_processor", None)
         if video_backend and video_processor is not None:
             from transformers.video_utils import load_video  # type: ignore
@@ -3616,18 +3618,18 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--manifest-path", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--model-path", type=Path, required=True, help="Local Qwen3-VL model directory (set via wrbench.runtime.json eval.scorers.qwen3vl_model).")
-    parser.add_argument("--fps", default=DEFAULT_FPS)
-    parser.add_argument("--max-videos", type=int, default=0)
+    parser.add_argument("--fps", required=True)
+    parser.add_argument("--max-videos", type=int, required=True)
     parser.add_argument("--skip-existing", action="store_true")
-    parser.add_argument("--num-shards", type=int, default=1)
-    parser.add_argument("--shard-id", type=int, default=0)
+    parser.add_argument("--num-shards", type=int, required=True)
+    parser.add_argument("--shard-id", type=int, required=True)
     parser.add_argument("--merge-only", action="store_true")
     parser.add_argument("--allow-incomplete-merge", action="store_true")
-    parser.add_argument("--dtype", default=DEFAULT_DTYPE)
-    parser.add_argument("--attn-implementation", default=DEFAULT_ATTN_IMPLEMENTATION)
-    parser.add_argument("--max-new-tokens", type=int, default=DEFAULT_MAX_NEW_TOKENS)
-    parser.add_argument("--local-rank", type=int, default=None)
-    parser.add_argument("--prompt-schema", choices=sorted(SUPPORTED_PROMPT_SCHEMAS), default=PROMPT_SCHEMA_SUBJECT)
+    parser.add_argument("--dtype", required=True)
+    parser.add_argument("--attn-implementation", required=True)
+    parser.add_argument("--max-new-tokens", type=int, required=True)
+    parser.add_argument("--local-rank", type=int, required=True)
+    parser.add_argument("--prompt-schema", choices=sorted(SUPPORTED_PROMPT_SCHEMAS), required=True)
     args = parser.parse_args(argv)
     if args.num_shards < 1:
         parser.error("--num-shards must be >= 1")
@@ -3654,7 +3656,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    local_rank = int(args.local_rank if args.local_rank is not None else os.environ.get("LOCAL_RANK", 0))
+    local_rank = int(args.local_rank)
     args.output_dir.mkdir(parents=True, exist_ok=True)
     manifest = load_json(args.manifest_path)
     if not isinstance(manifest, list):

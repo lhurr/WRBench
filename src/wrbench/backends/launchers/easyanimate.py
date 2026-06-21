@@ -7,7 +7,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from wrbench.contracts import require_execution_contract, require_mapping
+from wrbench.contracts import require_bool, require_execution_contract, require_int, require_mapping, require_sequence, require_str
 from wrbench.runtime import ModelRuntime
 
 
@@ -16,6 +16,20 @@ def _replace_assignment(text: str, name: str, value: str) -> str:
     if not pattern.search(text):
         raise RuntimeError(f"EasyAnimate source does not contain assignment: {name}")
     return pattern.sub(f"{name.ljust(24)}= {value}", text, count=1)
+
+
+def _require_float(node: dict[str, Any], field: str) -> float:
+    value = node.get(field)
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        raise ValueError(f"Missing required numeric EasyAnimate contract field: {field}")
+    return float(value)
+
+
+def _require_hw_pair(node: dict[str, Any], field: str) -> list[int]:
+    value = require_sequence(node, field)
+    if len(value) != 2:
+        raise ValueError(f"EasyAnimate {field} must contain [height, width], got {value!r}")
+    return [int(value[0]), int(value[1])]
 
 
 def materialize_easyanimate_script(
@@ -39,33 +53,25 @@ def materialize_easyanimate_script(
     """Patch ``predict_v2v_control.py`` defaults (WRBench-style materialization)."""
     text = source.read_text(encoding="utf-8")
     if enable_teacache is None:
-        enable_teacache = bool(
-            official_profile.get("enable_teacache", official_defaults.get("enable_teacache", False))
-        )
+        enable_teacache = require_bool(official_profile, "enable_teacache")
     replacements = {
-        "GPU_memory_mode": json.dumps(
-            str(runtime_parameters.get("gpu_memory_mode", official_defaults.get("gpu_memory_mode", "model_cpu_offload")))
-        ),
+        "GPU_memory_mode": json.dumps(require_str(runtime_parameters, "gpu_memory_mode")),
         "enable_teacache": "True" if enable_teacache else "False",
-        "teacache_threshold": str(float(official_profile.get("teacache_threshold", official_defaults.get("teacache_threshold", 0.08)))),
-        "config_path": json.dumps(
-            str(runtime_parameters.get("config_path", official_defaults.get("config_path", "")))
-        ),
+        "teacache_threshold": str(_require_float(official_profile, "teacache_threshold")),
+        "config_path": json.dumps(require_str(runtime_parameters, "config_path")),
         "model_name": json.dumps(model_path),
-        "sampler_name": json.dumps(str(official_profile.get("sampler_name", official_defaults.get("sampler_name", "Flow")))),
+        "sampler_name": json.dumps(require_str(official_profile, "sampler_name")),
         "sample_size": json.dumps([int(sample_size[0]), int(sample_size[1])]),
         "video_length": str(int(video_length)),
         "fps": str(int(fps)),
-        "weight_dtype": str(runtime_parameters.get("weight_dtype", official_defaults.get("weight_dtype", "torch.float16"))),
+        "weight_dtype": require_str(runtime_parameters, "weight_dtype"),
         "control_video": "None",
         "control_camera_txt": json.dumps(str(control_camera_txt)),
         "ref_image": json.dumps(str(image_path)),
         "prompt": json.dumps(prompt),
-        "guidance_scale": str(float(official_profile.get("guidance_scale", official_defaults.get("guidance_scale", 6.0)))),
-        "seed": str(int(official_profile.get("seed", official_defaults.get("seed", 43)))),
-        "num_inference_steps": str(
-            int(official_profile.get("num_inference_steps", official_defaults.get("num_inference_steps", 50)))
-        ),
+        "guidance_scale": str(_require_float(official_profile, "guidance_scale")),
+        "seed": str(require_int(official_profile, "seed")),
+        "num_inference_steps": str(require_int(official_profile, "num_inference_steps")),
         "save_path": json.dumps(str(save_dir)),
     }
     for name, value in replacements.items():
@@ -79,7 +85,7 @@ def materialize_easyanimate_script(
         '        if hasattr(_text_encoder, "visual"):\n            del _text_encoder.visual',
         '        try:\n            del _text_encoder.visual\n        except AttributeError:\n            pass',
     )
-    if bool(runtime_parameters.get("manual_cuda_offload_patch", False)):
+    if require_bool(runtime_parameters, "manual_cuda_offload_patch"):
         text = text.replace(
             '    convert_weight_dtype_wrapper(transformer, weight_dtype)\n    pipeline.enable_model_cpu_offload()\nelse:\n    pipeline.enable_model_cpu_offload()',
             '    convert_weight_dtype_wrapper(transformer, weight_dtype)\n    pipeline.to("cuda", silence_dtype_warnings=True)\n    if isinstance(pipeline.text_encoder, Qwen2VLForConditionalGeneration):\n        pipeline.text_encoder.to("cpu")\n    if isinstance(pipeline.text_encoder_2, Qwen2VLForConditionalGeneration) and pipeline.text_encoder_2 is not None:\n        pipeline.text_encoder_2.to("cpu")\n    pipeline.manual_cpu_offload_flag = False\nelse:\n    pipeline.to("cuda", silence_dtype_warnings=True)\n    if isinstance(pipeline.text_encoder, Qwen2VLForConditionalGeneration):\n        pipeline.text_encoder.to("cpu")\n    if isinstance(pipeline.text_encoder_2, Qwen2VLForConditionalGeneration) and pipeline.text_encoder_2 is not None:\n        pipeline.text_encoder_2.to("cpu")\n    pipeline.manual_cpu_offload_flag = False',
@@ -129,13 +135,13 @@ def build_easyanimate_command(
     if not control_camera_txt:
         raise ValueError(f"{model}: payload missing control_camera_txt")
 
-    sample_size = payload.get("sample_size") or benchmark_profile.get("sample_size") or [384, 672]
+    sample_size = _require_hw_pair(payload, "sample_size")
     height, width = int(sample_size[0]), int(sample_size[1])
-    video_length = int(payload.get("video_length") or benchmark_profile.get("video_length") or 49)
-    fps = int(payload.get("fps") or benchmark_profile.get("fps") or 8)
+    video_length = require_int(payload, "video_length")
+    fps = require_int(payload, "fps")
 
     repo = Path(runtime.repo_root)
-    entrypoint = str(execution.get("entrypoint") or "predict_v2v_control.py")
+    entrypoint = require_str(execution, "entrypoint")
     script = repo / entrypoint
     if not script.is_file():
         raise FileNotFoundError(f"EasyAnimate entrypoint not found: {script}")
@@ -167,9 +173,11 @@ def build_easyanimate_command(
 
     cmd = [str(runtime.python_bin), str(localized)]
     env = dict(runtime.env)
-    env.setdefault("CUDA_VISIBLE_DEVICES", str(runtime.gpu_id))
-    env.setdefault("PYTHONUNBUFFERED", "1")
+    env["CUDA_VISIBLE_DEVICES"] = str(runtime.gpu_id)
+    env["PYTHONUNBUFFERED"] = "1"
     repo_str = str(repo)
-    existing = env.get("PYTHONPATH", "")
-    env["PYTHONPATH"] = repo_str if not existing else f"{repo_str}:{existing}"
+    if "PYTHONPATH" in env and env["PYTHONPATH"]:
+        env["PYTHONPATH"] = f"{repo_str}:{env['PYTHONPATH']}"
+    else:
+        env["PYTHONPATH"] = repo_str
     return cmd, repo, env, easyanimate_expected_output(save_dir)

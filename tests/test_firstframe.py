@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from wrbench.firstframe import (
     MockT2IProvider,
     generate_first_frame,
@@ -43,8 +45,30 @@ def test_generate_first_frames_from_families_skip_existing(tmp_path: Path) -> No
     )
     assert len(manifests) == 2
     assert (tmp_path / "fam_b.png").is_file()
+    generated = next(m for m in manifests if not m.metadata.get("skipped"))
+    assert generated.provider == "mock"
+    assert generated.model == "mock"
     skipped = [m for m in manifests if m.metadata.get("skipped")]
     assert len(skipped) == 1
+
+
+def test_generate_first_frame_requires_explicit_provider(tmp_path: Path) -> None:
+    with pytest.raises(RuntimeError, match="First-frame provider required"):
+        generate_first_frame(
+            family_id="bedroom_cat",
+            prompt="A cat on a bed.",
+            out_dir=tmp_path,
+        )
+
+
+def test_generate_first_frame_requires_explicit_model_for_live_provider(tmp_path: Path) -> None:
+    with pytest.raises(RuntimeError, match="First-frame model required"):
+        generate_first_frame(
+            family_id="bedroom_cat",
+            prompt="A cat on a bed.",
+            out_dir=tmp_path,
+            provider="dashscope",
+        )
 
 
 def test_write_manifest(tmp_path: Path) -> None:

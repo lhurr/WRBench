@@ -107,7 +107,7 @@
       "fps": 16,
       "guidance_scale": 1.0,
       "mode": "ar_rollout",
-      "note": "The 4-step DMD path is the upstream quick-start/default for HY Action2V camera inference, not a low-step benchmark workaround.",
+      "note": "The 4-step DMD path is the published HY Action2V camera inference profile, not a low-step benchmark workaround.",
       "num_inference_steps": 4,
       "shift": 5.0,
       "stabilization_level": 1,
@@ -138,7 +138,7 @@
     "wrbench_benchmark_profile": {
       "duration_seconds": 4.8125,
       "fps": 16,
-      "reason": "Use upstream HY Action2V DMD default length for main benchmark unless a separate calibrated long-context profile is requested.",
+      "reason": "Use the published HY Action2V DMD profile length for main benchmark unless a separate calibrated long-context profile is requested.",
       "video_length": 77
     },
     "wrbench_policy": {

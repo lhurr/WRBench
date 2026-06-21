@@ -1,19 +1,19 @@
 # Backends
 
-WRBench compiles camera payloads and sidecars by default (`dry_run=True`). Real
-video generation is optional and routes through a **backend**.
+WRBench can either compile camera payloads/sidecars (`dry_run=True`) or launch a
+configured generation backend (`dry_run=False`).
 
 ## Built-in backends
 
 | Backend | Name | When used |
 | --- | --- | --- |
-| Compile-only | `dry_run` | Default; no GPU, no weights |
-| Local subprocess | `local_subprocess` | When `wrbench.runtime.json` configures a supported model |
+| Compile-only | `dry_run` | No GPU, no weights |
+| Local subprocess | `local_subprocess` | Requires an explicit `wrbench.runtime.json` for a supported model |
 
 ## Configure local subprocess generation
 
 1. Copy [`wrbench.runtime.example.json`](../../wrbench.runtime.example.json) to
-   `wrbench.runtime.json` (or set `WRBENCH_RUNTIME_CONFIG`).
+   a local runtime config file.
 2. Fill in `python_bin`, `repo_root`, and model-specific paths.
 3. Run:
 
@@ -30,16 +30,17 @@ wrbench generate \
   --image "$IMAGE" \
   --prompt "A living room." \
   --out out.mp4 \
+  --runtime-config /path/to/wrbench.runtime.json \
   --no-dry-run
 ```
 
-## Reference models (v0.1)
+## Reference Models
 
 | Model | Kind | Backend support |
 | --- | --- | --- |
 | `easyanimate-v51-camera` | TI2V | `local_subprocess` (EasyAnimate `predict_v2v_control.py`) |
-| `spatia` | V2V | `local_subprocess` (Spatia `inference.py`) |
-| `gen3c` | V2V | Documented `execution_contract`; backend planned (ViPE + in-process pipeline) |
+| `spatia` | TV2V | `local_subprocess` (Spatia `inference.py`) |
+| `gen3c` | TV2V | Documented `execution_contract`; backend planned (ViPE + in-process pipeline) |
 
 ### EasyAnimate notes
 
@@ -52,7 +53,8 @@ wrbench generate \
 ### Spatia notes
 
 - Requires **absolute** `--out` paths (subprocess cwd is the Spatia repo).
-- Install `opencv-python-headless` in the WRBench venv when `ffmpeg` is not on `PATH`.
+- Configure `extra_paths.ffmpeg_bin` in `wrbench.runtime.json`; Spatia frame
+  extraction does not fall back to ambient `PATH` tools.
 
 ## `execution_contract` schema
 

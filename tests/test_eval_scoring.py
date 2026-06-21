@@ -17,6 +17,61 @@ from wrbench.eval.scoring import run_local_qwen3vl_video_evidence as qwen3vl_mod
 DUMMY_QWEN35_MODEL = "/tmp/qwen35-model-dir"
 
 
+def qwen35_required_args(
+    *,
+    prompt_mode: str = qwen35_mod.PROMPT_MODE_P9_D4_P8_D5_P6_COMBINED,
+    task_context_mode: str = "all_manifest_metadata",
+) -> list[str]:
+    return [
+        "--prompt-mode",
+        prompt_mode,
+        "--task-context-mode",
+        task_context_mode,
+        "--num-shards",
+        "1",
+        "--shard-id",
+        "0",
+        "--vlm-name",
+        "local_qwen35_runtime_v2_probe_logprob",
+        "--loader-family",
+        "auto",
+        "--fps",
+        "2",
+        "--max-videos",
+        "0",
+        "--dtype",
+        "bfloat16",
+        "--attn-implementation",
+        "flash_attention_2",
+        "--local-rank",
+        "0",
+        "--num-samples",
+        "1",
+        "--progress-every",
+        "1",
+        "--evidence-context-mode",
+        "visibility_v1",
+    ]
+
+
+def d3d6_shell_required_env() -> dict[str, str]:
+    return {
+        "QWEN35_VLM_NAME": "local_qwen35_runtime_v2_probe_logprob",
+        "QWEN35_LOADER_FAMILY": "auto",
+        "QWEN35_DTYPE": "bfloat16",
+        "QWEN35_ATTN_IMPLEMENTATION": "flash_attention_2",
+        "QWEN35_NUM_SAMPLES": "1",
+        "QWEN35_MAX_VIDEOS": "0",
+        "QWEN35_EVIDENCE_CONTEXT_MODE": "visibility_v1",
+        "QWEN3VL_DTYPE": "bfloat16",
+        "QWEN3VL_ATTN_IMPLEMENTATION": "flash_attention_2",
+        "QWEN3VL_MAX_NEW_TOKENS": "48",
+        "QWEN3VL_MAX_VIDEOS": "0",
+        "QWEN3VL_BINARY_PROMPT_SCHEMA": "subject_judgeability_v1",
+        "QWEN3VL_RESCUE_PROMPT_SCHEMA": "guarded_teacher_gate_v3",
+    }
+
+
 def write_json(path: Path, payload: object) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -98,6 +153,7 @@ def test_qwen35_standalone_manifest_dry_run_without_source_scores(tmp_path: Path
                 str(out_dir),
                 "--model-path",
                 DUMMY_QWEN35_MODEL,
+                *qwen35_required_args(),
                 "--dry-run",
             ]
         )
@@ -126,12 +182,13 @@ def test_qwen35_legacy_p9_manifest_metadata_context_remains_available() -> None:
             "--strict-manifest-contract",
             "--manifest-path",
             "/tmp/manifest.json",
-        "--output-dir",
-        "/tmp/out",
-        "--model-path",
-        DUMMY_QWEN35_MODEL,
-    ]
-)
+            "--output-dir",
+            "/tmp/out",
+            "--model-path",
+            DUMMY_QWEN35_MODEL,
+            *qwen35_required_args(),
+        ]
+    )
 
     assert args.task_context_mode == "all_manifest_metadata"
     task_context = qwen35_mod.build_task_context(
@@ -759,6 +816,7 @@ def test_qwen35_manifest_video_preflight_fails_on_missing_video(tmp_path: Path) 
                 str(out_dir),
                 "--model-path",
                 DUMMY_QWEN35_MODEL,
+                *qwen35_required_args(),
                 "--dry-run",
             ]
         )
@@ -855,6 +913,83 @@ def test_evidence_export_standalone_required_inputs(tmp_path: Path) -> None:
     assert masked[0]["vlm_state_reasoning"] == 0.5
 
 
+def test_evidence_export_manifest_no_oov_overrides_evidence_gate(tmp_path: Path) -> None:
+    manifest = [
+        {
+            "video_id": "vid-no-oov",
+            "path": "/tmp/vid-no-oov.mp4",
+            "world_state_prompt": "A child stands beside a chair.",
+            "camera_type": "yaw_RL",
+            "oov_gap": "none",
+        }
+    ]
+    scores = [
+        {
+            "video_id": "vid-no-oov",
+            "path": "/tmp/vid-no-oov.mp4",
+            "vlm_spatial_fidelity": 0.8,
+            "vlm_state_fidelity": 0.7,
+            "vlm_spatial_reasoning": 0.6,
+            "vlm_state_reasoning": 0.5,
+            "runtime_v2_d5_raw_score": 0.6,
+            "runtime_v2_d6_raw_score": 0.5,
+            "vlm_dimension_applicable": {
+                "spatial_fidelity": True,
+                "state_fidelity": True,
+                "spatial_reasoning": True,
+                "state_reasoning": True,
+            },
+        }
+    ]
+    evidence = [
+        {
+            "video_id": "vid-no-oov",
+            "schema_version": "qwen3vl_guarded_teacher_gate_v3",
+            "evidence_shared_oov_applicable": True,
+            "evidence_d5_applicable": True,
+            "evidence_d6_applicable": True,
+        }
+    ]
+    manifest_path = tmp_path / "manifest.json"
+    scores_path = tmp_path / "scores.json"
+    evidence_path = tmp_path / "evidence.jsonl"
+    out_dir = tmp_path / "exports"
+    write_json(manifest_path, manifest)
+    write_json(scores_path, scores)
+    write_jsonl(evidence_path, evidence)
+
+    assert (
+        export_mod.main(
+            [
+                "--scores-v7",
+                str(scores_path),
+                "--evidence-jsonl",
+                str(evidence_path),
+                "--manifest-path",
+                str(manifest_path),
+                "--out-dir",
+                str(out_dir),
+            ]
+        )
+        == 0
+    )
+
+    masked = json.loads(
+        (out_dir / "scores_v7_runtime_v2_evidence_first_gate_masked_export.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    row = masked[0]
+    assert row["runtime_v2_evidence_shared_oov_applicable"] is False
+    assert row["runtime_v2_evidence_shared_oov_na_reason"] == "no_oov"
+    assert row["runtime_v2_evidence_d5_applicable"] is False
+    assert row["runtime_v2_evidence_d5_na_reason"] == "no_oov"
+    assert row["runtime_v2_evidence_d6_applicable"] is False
+    assert row["runtime_v2_evidence_d6_na_reason"] == "no_oov"
+    assert row["vlm_spatial_reasoning"] is None
+    assert row["vlm_state_reasoning"] is None
+
+
 def test_metric_scoring_python_files_do_not_import_workplace() -> None:
     scoring_dir = Path(__file__).resolve().parents[1] / "src" / "wrbench" / "eval" / "scoring"
     offenders = []
@@ -884,8 +1019,25 @@ def test_score_runtime_v2_shell_preflight_accepts_manifest_aliases(tmp_path: Pat
     script = Path(__file__).resolve().parents[1] / "scripts" / "eval" / "score_runtime_v2_d3d6.sh"
     env = {
         **os.environ,
+        "FORCE_QWENVL_VIDEO_READER": "decord",
+        "WORLD_STATE_VIDEO_BACKEND": "decord",
+        "PY_SCORER": "python",
+        "PY_HELPER": "python",
         "MANIFEST": str(manifest_path),
         "OUT_DIR": str(out_dir),
+        "QWEN35_MODEL": str(tmp_path),
+        "QWEN3VL_MODEL": str(tmp_path),
+        "SCORER_PROFILE": "wrbench_default",
+        "RUN_TAG": "test_run",
+        "PROMPT_MODE": "runtime_v2_probe_logprob_p25_d3d4_slot_parse",
+        "TASK_CONTEXT_MODE": "none",
+        "NUM_SHARDS": "1",
+        "SHARD_IDS": "0",
+        "CUDA_DEVICES_CSV": "0",
+        "FPS": "2",
+        "PROGRESS_EVERY": "1",
+        "SKIP_EXISTING": "0",
+        **d3d6_shell_required_env(),
     }
     result = subprocess.run(
         ["bash", str(script), "preflight"],
@@ -897,6 +1049,17 @@ def test_score_runtime_v2_shell_preflight_accepts_manifest_aliases(tmp_path: Pat
     )
 
     assert "[preflight] manifest_records=1" in result.stdout
+
+
+def test_runtime_example_matches_wrbench_default_d3d6_profile() -> None:
+    from wrbench.eval.scoring import run_qwen35_p25_d3d4_slot_parse_overlay as p25
+
+    runtime_example = Path(__file__).resolve().parents[1] / "wrbench.runtime.example.json"
+    payload = json.loads(runtime_example.read_text(encoding="utf-8"))
+    env = payload["eval"]["scorers"]["env"]
+
+    assert env["PROMPT_MODE"] == p25.P25_PROMPT_MODE
+    assert env["TASK_CONTEXT_MODE"] == "none"
 
 
 def test_overlay_install_accepts_wrbench_repo_root() -> None:
@@ -912,21 +1075,24 @@ def test_overlay_install_accepts_wrbench_repo_root() -> None:
     assert p25.P25_PROMPT_MODE in prompts_v2_probe.SUPPORTED_PROMPT_MODES
 
 
-def test_score_runtime_v2_shell_defaults_to_wrbench_default_profile() -> None:
+def test_score_runtime_v2_shell_requires_explicit_profile_configuration() -> None:
     script = Path(__file__).resolve().parents[1] / "scripts" / "eval" / "score_runtime_v2_d3d6.sh"
     text = script.read_text(encoding="utf-8")
 
-    assert 'SCORER_PROFILE="${SCORER_PROFILE:-wrbench_default}"' in text
-    assert "wrbench_default|current_benchmark_p25_p22_e14)" in text
-    assert 'PROMPT_MODE="${PROMPT_MODE:-runtime_v2_probe_logprob_p25_d3d4_slot_parse}"' in text
-    assert 'TASK_CONTEXT_MODE="${TASK_CONTEXT_MODE:-none}"' in text
+    assert 'SCORER_PROFILE="$(require_env SCORER_PROFILE)"' in text
+    assert 'RUN_TAG="$(require_env RUN_TAG)"' in text
+    assert 'PROMPT_MODE="$(require_env PROMPT_MODE)"' in text
+    assert 'TASK_CONTEXT_MODE="$(require_env TASK_CONTEXT_MODE)"' in text
+    assert "wrbench_default|current_benchmark_p25_p22_e14)" not in text
+    assert "wrbench_default)" in text
     assert "run_qwen35_p25_d3d4_slot_parse_overlay.py" in text
 
 
-def test_score_runtime_v2_shell_keeps_legacy_p9_profile_explicit() -> None:
+def test_score_runtime_v2_shell_does_not_inject_legacy_p9_defaults() -> None:
     script = Path(__file__).resolve().parents[1] / "scripts" / "eval" / "score_runtime_v2_d3d6.sh"
     text = script.read_text(encoding="utf-8")
 
-    assert "legacy_p9_all_manifest_metadata|ablation_manifest_metadata)" in text
-    assert 'PROMPT_MODE="${PROMPT_MODE:-runtime_v2_probe_logprob_p9_d4_p8_d5_p6_combined}"' in text
-    assert 'TASK_CONTEXT_MODE="${TASK_CONTEXT_MODE:-all_manifest_metadata}"' in text
+    assert "legacy_p9_all_manifest_metadata|ablation_manifest_metadata)" not in text
+    assert "ablation_manifest_metadata)" in text
+    assert "runtime_v2_probe_logprob_p9_d4_p8_d5_p6_combined" not in text
+    assert 'TASK_CONTEXT_MODE="${TASK_CONTEXT_MODE:-all_manifest_metadata}"' not in text

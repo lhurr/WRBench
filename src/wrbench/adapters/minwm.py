@@ -5,6 +5,7 @@ from pathlib import Path
 import numpy as np
 
 from wrbench.adapters._utils import adapter_taxonomy_metadata, ensure_work_dir, model_target_trajectory, write_json
+from wrbench.adapters.minwm_camera_patch import apply_launcher_to_command, write_rotation_step_patch
 from wrbench.adapters.base import register
 from wrbench.contracts import (
     build_command_template,
@@ -50,6 +51,29 @@ def _target_yaw_peak_deg(target: CameraTrajectory) -> float:
     return float(yaw[int(np.argmax(np.abs(yaw)))]) if len(yaw) else 0.0
 
 
+def _action_token_count(trajectory_string: str) -> int:
+    return sum(int(part.split("*", 1)[1]) for part in trajectory_string.split(","))
+
+
+def _minwm_request(
+    *,
+    model_key: str,
+    entrypoint: str,
+    command_template: list[str],
+    input_contract: dict[str, object],
+    runtime_patch: dict[str, str] | None = None,
+) -> dict[str, object]:
+    request: dict[str, object] = {
+        "model_key": model_key,
+        "entrypoint": entrypoint,
+        "command_template": command_template,
+        "input_contract": input_contract,
+    }
+    if runtime_patch:
+        request["runtime_patch"] = runtime_patch
+    return request
+
+
 def _yaw_tokens_for_peak(
     first_key: str,
     second_key: str,
@@ -91,11 +115,23 @@ def _yaw_tokens_for_peak(
     }
 
 
-def _trajectory_string(target: CameraTrajectory, *, latent_stride: int) -> tuple[str, str, dict[str, object]]:
+def _trajectory_string(
+    target: CameraTrajectory,
+    *,
+    latent_stride: int,
+    static_noop_token: str | None = None,
+) -> tuple[str, str, dict[str, object]]:
     """Approximate WRBench camera families with minWM's native motion tokens."""
     action_count = max(0, _latent_frame_count(target.frame_count, latent_stride=latent_stride) - 1)
     camera_type = str(target.camera_type or "")
-    if camera_type == "static":
+    if camera_type.startswith("static"):
+        if static_noop_token:
+            return _segment(static_noop_token, action_count), "static_identity_pose_noop_tokens", {
+                "token_budget_status": "static_noop_token_budget",
+                "available_action_tokens": action_count,
+                "requires_runtime_camera_patch": True,
+                "runtime_camera_patch_reason": "minwm_wan_identity_noop_token",
+            }
         return _segment("w", 0), "static_anchor_pose_padded_by_minwm", {
             "token_budget_status": "static",
             "available_action_tokens": action_count,
@@ -125,6 +161,18 @@ def _trajectory_string(target: CameraTrajectory, *, latent_stride: int) -> tuple
     yaw_peak = float(yaw[int(np.argmax(np.abs(yaw)))]) if len(yaw) else 0.0
     trans = rel[:, :3, 3]
     peak = trans[int(np.argmax(np.linalg.norm(trans, axis=1)))] if trans.size else np.zeros(3)
+    if abs(yaw_peak) < 1e-6 and float(np.max(np.abs(trans))) < 1e-6:
+        if static_noop_token:
+            return _segment(static_noop_token, action_count), "static_identity_pose_noop_tokens", {
+                "token_budget_status": "static_noop_token_budget",
+                "available_action_tokens": action_count,
+                "requires_runtime_camera_patch": True,
+                "runtime_camera_patch_reason": "minwm_wan_identity_noop_token",
+            }
+        return _segment("w", 0), "static_zero_motion_padded_by_minwm", {
+            "token_budget_status": "static",
+            "available_action_tokens": action_count,
+        }
     if abs(yaw_peak) >= max(abs(float(peak[0])), abs(float(peak[2])), 1e-6):
         if yaw_peak < 0:
             trajectory, details = _yaw_tokens_for_peak("j", "l", yaw_peak_deg=yaw_peak, action_count=action_count)
@@ -176,10 +224,8 @@ class MinWMHyAction2VAdapter:
             raise ValueError(f"{key} requires contract fps {benchmark_fps}, got {target.fps}")
         trajectory_string, mapping_rule, token_details = _trajectory_string(target, latent_stride=chunk_latent_frames)
         latent_frames = _latent_frame_count(target.frame_count, latent_stride=chunk_latent_frames)
-        action_token_count = sum(int(part.split("*", 1)[1]) for part in trajectory_string.split(","))
+        action_token_count = _action_token_count(trajectory_string)
 
-        trajectory_txt = out_dir / "minwm_hy_action2v_trajectory.txt"
-        trajectory_txt.write_text(trajectory_string + "\n", encoding="utf-8")
         example_json = write_json(
             out_dir / "minwm_hy_action2v_example.json",
             [
@@ -202,30 +248,23 @@ class MinWMHyAction2VAdapter:
                 "video_length": int(target.frame_count),
             },
         )
+        input_contract = {
+            "example_json": str(example_json),
+            "image_field": "absolute first-frame image path required before run",
+            "caption_field": "WRBench dynamic-event prompt string",
+            "trajectory_field": "minWM native motion token string",
+            "trajectory_string": trajectory_string,
+            "token_mapping_rule": mapping_rule,
+            "token_mapping_details": token_details,
+        }
         request_json = write_json(
             out_dir / "minwm_hy_action2v_run_request.json",
-            {
-                "entrypoint": entrypoint,
-                "command_template": command_template,
-                "model": require_str(runtime_parameters, "model"),
-                "hf_revision": require_str(runtime_parameters, "hf_revision"),
-                "transformer_subdir": require_str(runtime_parameters, "transformer_subdir"),
-                "base_model": require_str(runtime_parameters, "base_model"),
-                "input_contract": {
-                    "example_json": str(example_json),
-                    "image_field": "absolute first-frame image path required before run",
-                    "caption_field": "WRBench dynamic-event prompt string",
-                    "trajectory_field": "minWM native motion token string",
-                    "trajectory_string": trajectory_string,
-                    "token_mapping_rule": mapping_rule,
-                    "token_mapping_details": token_details,
-                },
-                "runtime_parameters": runtime_parameters,
-                "official_runtime": require_mapping(execution, "official_runtime"),
-                "official_inference_profile": official_profile,
-                "wrbench_benchmark_profile": benchmark_profile,
-                "wrbench_policy": require_mapping(execution, "wrbench_policy"),
-            },
+            _minwm_request(
+                model_key=key,
+                entrypoint=entrypoint,
+                command_template=command_template,
+                input_contract=input_contract,
+            ),
         )
 
         payload_type = "minwm_hy_action2v_trajectory_json"
@@ -233,10 +272,9 @@ class MinWMHyAction2VAdapter:
             payload_type=payload_type,
             payload={
                 "example_json": str(example_json),
-                "trajectory_txt": str(trajectory_txt),
                 "request_json": str(request_json),
                 "trajectory": trajectory_string,
-                "command_template": command_template,
+                "token_mapping_details": token_details,
             },
             target_trajectory=target,
             official_camera_entrypoint="HY15/hy15_inference.py --use_camera with per-sample trajectory in example_json",
@@ -274,6 +312,168 @@ class MinWMHyAction2VAdapter:
                     "latent_frame_count": latent_frames,
                     "action_token_count": action_token_count,
                     "token_mapping_details": token_details,
+                    "target_c2w_is_desired_wrbench_motion": True,
+                    "model_effective_camera_requires_empirical_calibration": True,
+                },
+            ),
+        )
+
+
+@register("minwm-wan-action2v")
+class MinWMWanAction2VAdapter:
+    name = "minwm_wan_action2v"
+
+    def compile(
+        self,
+        trajectory: CameraTrajectory,
+        *,
+        model_name: str,
+        width: int,
+        height: int,
+        num_frames: int,
+        work_dir: str | Path | None = None,
+        device: str | None = None,
+        prompt: str = "",
+    ) -> CameraPayload:
+        key = canonical_model_key(model_name)
+        execution = require_execution_contract(key)
+        runtime_parameters = require_mapping(execution, "runtime_parameters")
+        benchmark_profile = require_mapping(execution, "wrbench_benchmark_profile")
+        official_profile = require_mapping(execution, "official_inference_profile")
+        benchmark_frames = require_int(benchmark_profile, "video_length")
+        benchmark_fps = require_int(benchmark_profile, "fps")
+        chunk_latent_frames = require_int(runtime_parameters, "chunk_latent_frames")
+        num_output_frames = require_int(runtime_parameters, "num_output_frames")
+        entrypoint = require_str(execution, "entrypoint")
+        out_dir = ensure_work_dir(work_dir)
+        target, amp = model_target_trajectory(trajectory, key, num_frames)
+        if int(target.frame_count) != benchmark_frames:
+            raise ValueError(f"{key} requires contract video_length {benchmark_frames}, got {target.frame_count}")
+        if int(target.fps) != benchmark_fps:
+            raise ValueError(f"{key} requires contract fps {benchmark_fps}, got {target.fps}")
+
+        latent_frames = _latent_frame_count(target.frame_count, latent_stride=chunk_latent_frames)
+        if latent_frames != num_output_frames:
+            raise ValueError(
+                f"{key} requires {num_output_frames} latent output frames for {target.frame_count} decoded frames, "
+                f"got {latent_frames}"
+            )
+        trajectory_string, mapping_rule, token_details = _trajectory_string(
+            target,
+            latent_stride=chunk_latent_frames,
+            static_noop_token="z",
+        )
+        action_token_count = _action_token_count(trajectory_string)
+
+        prompt_text = str(prompt).strip() or "<prompt>"
+        prompt_txt = out_dir / "minwm_wan_action2v_prompts.txt"
+        prompt_txt.write_text(prompt_text + "\n", encoding="utf-8")
+        trajectory_txt = out_dir / "minwm_wan_action2v_trajectories.txt"
+        trajectory_txt.write_text(trajectory_string + "\n", encoding="utf-8")
+
+        runtime_yaw_deg_per_token = float(
+            token_details.get("runtime_yaw_deg_per_token", _MINWM_YAW_DEG_PER_TOKEN)
+        )
+        rotation_patch: dict[str, str] = {}
+        command_template = build_command_template(
+            execution,
+            values={
+                "prompt_path": str(prompt_txt),
+                "trajectory_path": str(trajectory_txt),
+                "output_dir": "<output_dir>",
+                "height": int(height),
+                "width": int(width),
+                "video_length": int(target.frame_count),
+            },
+        )
+        if bool(token_details.get("requires_runtime_rot_step_patch")) or bool(
+            token_details.get("requires_runtime_camera_patch")
+        ):
+            rotation_patch = write_rotation_step_patch(
+                out_dir,
+                runtime_yaw_deg_per_token=runtime_yaw_deg_per_token,
+            )
+            command_template = apply_launcher_to_command(
+                command_template,
+                rotation_patch["launcher_path"],
+            )
+        input_contract = {
+            "prompt_path": str(prompt_txt),
+            "prompt_file_format": "one materialized WRBench generation prompt per line, aligned with trajectory_path",
+            "trajectory_path": str(trajectory_txt),
+            "trajectory_file_format": "one minWM native motion token string per line, aligned with prompt_path",
+            "trajectory_string": trajectory_string,
+            "token_mapping_rule": mapping_rule,
+            "token_mapping_details": token_details,
+            "requires_first_frame_image": False,
+            "runtime_patch_applied": bool(rotation_patch),
+        }
+        request_json = write_json(
+            out_dir / "minwm_wan_action2v_run_request.json",
+            _minwm_request(
+                model_key=key,
+                entrypoint=entrypoint,
+                command_template=command_template,
+                input_contract=input_contract,
+                runtime_patch=rotation_patch or None,
+            ),
+        )
+
+        payload_type = "minwm_wan_action2v_prompt_trajectory"
+        return CameraPayload(
+            payload_type=payload_type,
+            payload={
+                "prompt_txt": str(prompt_txt),
+                "trajectory_txt": str(trajectory_txt),
+                "request_json": str(request_json),
+                "trajectory": trajectory_string,
+                "rotation_step_patch": rotation_patch or None,
+                "token_mapping_details": token_details,
+            },
+            target_trajectory=target,
+            official_camera_entrypoint="Wan21/wan_inference.py with prompt file and per-prompt trajectory tokens",
+            coordinate_notes=(
+                "minWM Wan Action2V does not consume WRBench C2W directly. WRBench camera families are approximated "
+                "as native minWM motion tokens: a/d lateral translation, w/s forward/back, j/l yaw, i/k pitch. "
+                "The official DMD Wan path consumes prompt text plus trajectory tokens, not a first-frame image."
+            ),
+            calibration_status=amp.calibration_status,
+            metadata=adapter_taxonomy_metadata(
+                model_name=key,
+                amp=amp,
+                target=target,
+                requested_frames=int(num_frames),
+                payload_type=payload_type,
+                certification_kind="native_motion_token_payload",
+                model_payload_summary={
+                    "entrypoint": entrypoint,
+                    "model": require_str(runtime_parameters, "model"),
+                    "hf_revision": require_str(runtime_parameters, "hf_revision"),
+                    "transformer_subdir": require_str(runtime_parameters, "transformer_subdir"),
+                    "base_model": require_str(runtime_parameters, "base_model"),
+                    "official_video_length": require_int(official_profile, "video_length"),
+                    "official_fps": require_int(official_profile, "fps"),
+                    "num_output_frames": num_output_frames,
+                    "trajectory": trajectory_string,
+                    "latent_frame_count": latent_frames,
+                    "action_token_count": action_token_count,
+                    "token_mapping_rule": mapping_rule,
+                    "token_mapping_details": token_details,
+                    "requires_first_frame_image": False,
+                    "official_input_kind": "prompt_plus_trajectory",
+                    "rotation_step_patch": rotation_patch or None,
+                },
+                target_c2w_is_model_effective=False,
+                control_sample_kind="action_matrix_or_pose",
+                control_sample_count=max(1, action_token_count),
+                sampling_rule="wrbench_camera_family_to_minwm_native_motion_tokens",
+                model_control_extra={
+                    "trajectory": trajectory_string,
+                    "latent_frame_count": latent_frames,
+                    "action_token_count": action_token_count,
+                    "token_mapping_details": token_details,
+                    "official_input_kind": "prompt_plus_trajectory",
+                    "requires_first_frame_image": False,
                     "target_c2w_is_desired_wrbench_motion": True,
                     "model_effective_camera_requires_empirical_calibration": True,
                 },

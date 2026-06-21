@@ -13,8 +13,8 @@ Quickstart::
     script = wrbench.presets.sweep("yaw", "left", 37, frames=49)
     wrbench.compile_camera(model="wan22-fun-5b-cam", camera=script, image=natural25_first_frame_path("bedroom_cat_bed_jump"), out="out.mp4")
 
-By default this compiles the model-native payload and writes auditable sidecars
-without running any heavy model (dry-run). See ``wrbench.backends`` for real
+With ``dry_run=True`` this compiles the model-native payload and writes auditable
+sidecars without running any heavy model. See ``wrbench.backends`` for real
 generation hooks.
 """
 

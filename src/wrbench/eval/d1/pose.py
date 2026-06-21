@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 import math
-import os
 import shlex
 import subprocess
-import sys
 from pathlib import Path
 from typing import Any
 
@@ -22,8 +20,42 @@ PRIMARY_TARGET_POSE_PATH_FIELDS = (
 POSE_INLINE_FIELDS = ("target_poses_c2w", "input_poses_c2w")
 
 
-def _is_enabled(config: dict[str, Any] | None) -> bool:
-    return bool((config or {}).get("enabled", True))
+def _require_config(config: dict[str, Any] | None) -> dict[str, Any]:
+    if config is None:
+        raise ValueError("pose scorer requires an explicit config")
+    return config
+
+
+def _require_config_value(config: dict[str, Any], key: str) -> Any:
+    if key not in config:
+        raise ValueError(f"pose scorer config.{key} is required")
+    return config[key]
+
+
+def _require_str(config: dict[str, Any], key: str) -> str:
+    value = _require_config_value(config, key)
+    if value in (None, ""):
+        raise ValueError(f"pose scorer config.{key} is required")
+    return str(value)
+
+
+def _require_float(config: dict[str, Any], key: str) -> float:
+    value = _require_config_value(config, key)
+    try:
+        return float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"pose scorer config.{key} must be a number") from exc
+
+
+def _require_bool(config: dict[str, Any], key: str) -> bool:
+    value = _require_config_value(config, key)
+    if not isinstance(value, bool):
+        raise ValueError(f"pose scorer config.{key} must be boolean")
+    return value
+
+
+def _is_enabled(config: dict[str, Any]) -> bool:
+    return _require_bool(config, "enabled")
 
 
 def _video_path(row: dict[str, Any]) -> str | None:
@@ -144,11 +176,11 @@ def score_trajectory_pose(
     target_poses_c2w: Any,
     predicted_poses_c2w: Any,
     *,
-    rot_scale_deg: float = 45.0,
-    trans_scale: float = 1.0,
-    predicted_pose_type: str = "c2w",
-    predicted_camera_convention: str = "opencv",
-    target_camera_convention: str = "opencv",
+    rot_scale_deg: float,
+    trans_scale: float,
+    predicted_pose_type: str,
+    predicted_camera_convention: str,
+    target_camera_convention: str,
 ) -> dict[str, Any]:
     target = _expand_poses(target_poses_c2w)
     predicted = _normalize_predicted_poses(
@@ -182,25 +214,14 @@ def score_trajectory_pose(
 
 
 def _pose_output_dir(row: dict[str, Any], config: dict[str, Any]) -> Path:
-    cache_root = Path(config.get("cache_root") or ".cache/reward_scoring")
+    cache_root = Path(_require_str(config, "cache_root"))
     return cache_root / "pose" / safe_video_id(row.get("video_id"))
 
 
-def _resolve_megasam(config: dict[str, Any]) -> tuple[str | None, str]:
-    repo = (
-        config.get("megasam_repo")
-        or config.get("magasam_repo")
-        or os.environ.get("MEGASAM_REPO")
-        or os.environ.get("MAGASAM_REPO")
-    )
-    python = (
-        config.get("megasam_python")
-        or config.get("magasam_python")
-        or os.environ.get("MEGASAM_PYTHON")
-        or os.environ.get("MAGASAM_PYTHON")
-        or sys.executable
-    )
-    return str(repo) if repo else None, str(python)
+def _resolve_megasam(config: dict[str, Any]) -> tuple[str, str]:
+    repo = _require_str(config, "megasam_repo")
+    python = _require_str(config, "megasam_python")
+    return repo, python
 
 
 def _stringify_stream(value: Any) -> str:
@@ -237,23 +258,22 @@ def _write_megasam_command_log(
             _stringify_stream(stderr),
         ]
     )
-    try:
-        output_dir.mkdir(parents=True, exist_ok=True)
-        (output_dir / "megasam_command.log").write_text("\n".join(lines), encoding="utf-8")
-    except Exception:
-        pass
+    output_dir.mkdir(parents=True, exist_ok=True)
+    (output_dir / "megasam_command.log").write_text("\n".join(lines), encoding="utf-8")
 
 
 def _run_megasam(row: dict[str, Any], output_dir: Path, config: dict[str, Any]) -> str | None:
     repo, python = _resolve_megasam(config)
     if not repo or not Path(repo).exists() or not Path(python).exists():
-        return "megasam_unavailable"
+        raise ValueError("pose scorer config.megasam_repo and config.megasam_python must exist")
     video_path = _video_path(row)
     if not video_path:
         return "skipped"
     output_dir.mkdir(parents=True, exist_ok=True)
-    entrypoint = config.get("entrypoint", "demo.py")
-    template = config.get("command_template")
+    entrypoint = _require_str(config, "entrypoint")
+    template = _require_config_value(config, "command_template")
+    device = _require_str(config, "device")
+    timeout = _require_config_value(config, "timeout")
     if template:
         command = template.format(
             python=shlex.quote(str(python)),
@@ -262,7 +282,7 @@ def _run_megasam(row: dict[str, Any], output_dir: Path, config: dict[str, Any]) 
             video_path=shlex.quote(str(video_path)),
             video_id=shlex.quote(str(row.get("video_id"))),
             output_dir=shlex.quote(str(output_dir)),
-            device=shlex.quote(str(config.get("device", "cpu"))),
+            device=shlex.quote(str(device)),
         )
         shell = True
     else:
@@ -276,7 +296,7 @@ def _run_megasam(row: dict[str, Any], output_dir: Path, config: dict[str, Any]) 
         ]
         shell = False
     try:
-        result = subprocess.run(command, shell=shell, check=False, capture_output=True, text=True, timeout=config.get("timeout"))
+        result = subprocess.run(command, shell=shell, check=False, capture_output=True, text=True, timeout=timeout)
     except FileNotFoundError as exc:
         _write_megasam_command_log(output_dir, command=command, status="file_not_found", stderr=exc)
         return "megasam_unavailable"
@@ -303,9 +323,9 @@ def _run_megasam(row: dict[str, Any], output_dir: Path, config: dict[str, Any]) 
     return None
 
 
-def score_pose_row(row: dict[str, Any], config: dict[str, Any] | None = None) -> dict[str, Any]:
+def score_pose_row(row: dict[str, Any], config: dict[str, Any]) -> dict[str, Any]:
     """Score one row against a target camera trajectory using cached/external MegaSAM poses."""
-    cfg = dict(config or {})
+    cfg = dict(_require_config(config))
     enriched = dict(row)
     if not _is_enabled(cfg):
         return _with_pose_status(row, "disabled")
@@ -313,7 +333,7 @@ def score_pose_row(row: dict[str, Any], config: dict[str, Any] | None = None) ->
     if status:
         return _with_pose_status(row, status)
     output_dir = _pose_output_dir(row, cfg)
-    pose_file = output_dir / cfg.get("poses_file", "poses.npy")
+    pose_file = output_dir / _require_str(cfg, "poses_file")
     had_cached_pose = pose_file.exists()
     if not had_cached_pose:
         status = _run_megasam(row, output_dir, cfg)
@@ -326,11 +346,11 @@ def score_pose_row(row: dict[str, Any], config: dict[str, Any] | None = None) ->
         score = score_trajectory_pose(
             target,
             predicted,
-            rot_scale_deg=float(cfg.get("rot_scale_deg", 45.0)),
-            trans_scale=float(cfg.get("trans_scale", 1.0)),
-            predicted_pose_type=cfg.get("predicted_pose_type", "c2w"),
-            predicted_camera_convention=cfg.get("predicted_camera_convention", "opencv"),
-            target_camera_convention=cfg.get("target_camera_convention", "opencv"),
+            rot_scale_deg=_require_float(cfg, "rot_scale_deg"),
+            trans_scale=_require_float(cfg, "trans_scale"),
+            predicted_pose_type=_require_str(cfg, "predicted_pose_type"),
+            predicted_camera_convention=_require_str(cfg, "predicted_camera_convention"),
+            target_camera_convention=_require_str(cfg, "target_camera_convention"),
         )
     except ValueError:
         return _with_pose_status(row, "invalid_pose")
@@ -353,11 +373,11 @@ def score_pose_row(row: dict[str, Any], config: dict[str, Any] | None = None) ->
             score = score_trajectory_pose(
                 target,
                 predicted,
-                rot_scale_deg=float(cfg.get("rot_scale_deg", 45.0)),
-                trans_scale=float(cfg.get("trans_scale", 1.0)),
-                predicted_pose_type=cfg.get("predicted_pose_type", "c2w"),
-                predicted_camera_convention=cfg.get("predicted_camera_convention", "opencv"),
-                target_camera_convention=cfg.get("target_camera_convention", "opencv"),
+                rot_scale_deg=_require_float(cfg, "rot_scale_deg"),
+                trans_scale=_require_float(cfg, "trans_scale"),
+                predicted_pose_type=_require_str(cfg, "predicted_pose_type"),
+                predicted_camera_convention=_require_str(cfg, "predicted_camera_convention"),
+                target_camera_convention=_require_str(cfg, "target_camera_convention"),
             )
         except ValueError:
             return _with_pose_status(row, "invalid_pose")
@@ -369,5 +389,5 @@ def score_pose_row(row: dict[str, Any], config: dict[str, Any] | None = None) ->
         components["pose"] = score["pose_reward"]
         enriched["reward_components"] = components
     else:
-        return _with_pose_status(enriched, str(score.get("pose_status", "error")))
+        return _with_pose_status(enriched, str(score["pose_status"]))
     return enriched

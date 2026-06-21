@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import numpy as np
@@ -90,27 +89,6 @@ def _trajectory_to_native_rows(trajectory: CameraTrajectory) -> np.ndarray:
     return np.concatenate([anchor, rows], axis=0)
 
 
-def _native_magicworld_trajectory(
-    action_segments: list[tuple[str, int]],
-    *,
-    total_angle_deg: float,
-    step_magnitude: float,
-    fallback_trajectory: CameraTrajectory | None = None,
-) -> tuple[np.ndarray, bool]:
-    try:
-        from openworldlib.operators.magicworld_operator import MagicWorldOperator
-    except ModuleNotFoundError:
-        if fallback_trajectory is None:
-            raise
-        return _trajectory_to_native_rows(fallback_trajectory), True
-
-    operator = MagicWorldOperator(
-        step_magnitude=float(step_magnitude),
-        total_angle_deg=float(total_angle_deg),
-    )
-    return np.asarray(operator.generate_trajectory_array(action_segments), dtype=np.float32), False
-
-
 @register("magicworld")
 class MagicWorldAdapter:
     name = "magicworld"
@@ -121,17 +99,9 @@ class MagicWorldAdapter:
         camera_type = _camera_profile_name(str(canonical_target.camera_type or ""))
         action_segments = _action_segments_for(camera_type, num_frames)
         total_angle_deg = _yaw_peak_abs_deg(canonical_target)
-        native_rows, compile_only_fallback = _native_magicworld_trajectory(
-            action_segments,
-            total_angle_deg=total_angle_deg,
-            step_magnitude=float(os.environ.get("MAGICWORLD_STEP_MAGNITUDE", "0.1")),
-            fallback_trajectory=canonical_target,
-        )
-        entrypoint = "action_segments -> MagicWorldOperator.generate_trajectory_array"
-        sampling_rule = "MagicWorld action_segments consumed by MagicWorldOperator.generate_trajectory_array"
-        if compile_only_fallback:
-            entrypoint = "compile_only_canonical_trajectory_rows_no_magicworld_operator"
-            sampling_rule = "Compile-only fallback: OpenWorldLib MagicWorldOperator unavailable; rows derived from canonical target trajectory for local tests"
+        native_rows = _trajectory_to_native_rows(canonical_target)
+        entrypoint = "action_segments + canonical_target_rows"
+        sampling_rule = "WRBench deterministic canonical target rows paired with MagicWorld action segment labels"
         if len(native_rows) != int(num_frames) + 1:
             raise ValueError(
                 f"MagicWorld native trajectory returned {len(native_rows)} rows; expected {int(num_frames) + 1}"
@@ -158,7 +128,6 @@ class MagicWorldAdapter:
             sampling_rule=sampling_rule,
             model_control_extra={
                 "control_contract": "exact_model_action_payload",
-                "compile_only_fallback": compile_only_fallback,
                 "action_segments": [
                     {"action": str(action), "frames": int(frames)}
                     for action, frames in action_segments

@@ -128,7 +128,7 @@
     },
     "official_runtime": {
       "python": "matrix_game_3_env",
-      "source": "Matrix-Game-3 official generate.py interactive path with deployment-quality default sampling; the 3-step test.sh path is interface-smoke only",
+      "source": "Matrix-Game-3 official generate.py interactive path with deployment-quality sampling parameters; the 3-step test.sh path is interface-smoke only",
       "torch": "CUDA-enabled torch"
     },
     "runtime_parameters": {

@@ -262,7 +262,11 @@ def generate_variants_deterministic(
                         "world_state_prompt": world_state,
                         "expected_state": world_state,
                         "ti2v_prompt": assemble_ti2v_prompt(
-                            scene_start, event, pronoun, offscreen_area, gap
+                            scene_start,
+                            event,
+                            pronoun,
+                            offscreen_area,
+                            gap,
                         ),
                     }
                 )

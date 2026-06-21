@@ -1,6 +1,6 @@
 # WRBench
 
-**Official toolkit for [WRBench](https://jinplu.github.io/WRBench/): camera-controlled generation and diagnostic evaluation of video world models.**
+**Official toolkit and release artifacts for [WRBench](https://jinplu.github.io/WRBench/): a camera-controlled benchmark for testing whether video world models keep a persistent world state.**
 
 [![Paper](https://img.shields.io/badge/Paper-arXiv%3A2606.20545-b31b1b?logo=arxiv&logoColor=red)](https://arxiv.org/abs/2606.20545)
 [![HF Paper](https://img.shields.io/badge/Hugging%20Face-Paper-yellow?logo=huggingface)](https://huggingface.co/papers/2606.20545)
@@ -9,51 +9,66 @@
 [![Leaderboard](https://img.shields.io/badge/Hugging%20Face-Leaderboard-yellow?logo=huggingface)](https://huggingface.co/spaces/WRBench/wrbench-leaderboard)
 [![GitHub](https://img.shields.io/github/stars/JinPLu/WRBench?style=social)](https://github.com/JinPLu/WRBench)
 
----
+> **Current World Models Lack a Persistent State Core.**
+> WRBench is a diagnostic benchmark for asking whether a generated video world remains consistent when the camera moves away and returns.
 
-> **Current World Models Lack a Persistent State Core**
-> *[arXiv:2606.20545](https://arxiv.org/abs/2606.20545)*
+<p align="center">
+  <img src="docs/assets/overview.png" alt="WRBench overview: Natural-25 prompts, controlled camera paths, model-native generation, and D1-D6 evaluation" width="900">
+</p>
 
----
+## What This Repository Provides
+
+WRBench is both a benchmark release and a Python toolkit:
+
+| Component | What it is for |
+|-----------|----------------|
+| Natural-25 | Scene/event prompts and first frames for controlled viewpoint-intervention tests. |
+| Camera compiler | Converts one camera intent into model-native controls: pose paths, prompt text, action tokens, or backend payloads. |
+| Evaluation toolkit | Runs the D1-D6 diagnostic contract for camera control, visual integrity, visible consistency, and re-observation consistency. |
+| Re-observation gate | Marks whether a video actually brings out-of-view content back into frame before D5/D6 are scored. |
+| Published artifacts | Bundled result tables, public Hugging Face datasets, benchmark videos, human annotations, and leaderboard links. |
+
+WRBench is a diagnostic benchmark rather than a single video-quality leaderboard. It separates camera compliance, visible scene consistency, and returned-state consistency so those failure modes stay legible.
+
+## Typical Use
+
+1. Choose the model input mode: first-frame image, source video, prompt plus camera controls, or API prompt-camera control.
+2. Compile a camera-controlled generation request for that model.
+3. Run the model through a configured backend, or inspect the dry-run payload.
+4. Evaluate generated videos with the D1-D6 scoring contract.
+5. Compare against the released 23-model main table, or publish a model entry in the matching track.
+
+Detailed D1-D6, re-observation, and prompt-only T2V policy lives in [docs/eval/README.md](docs/eval/README.md).
+
+## Model Input Modes
+
+All WRBench generations use a text prompt. The model `input_kind` records the extra visual input, if any.
+
+| Mode | Extra input | How camera control is provided | Examples |
+|------|-------------|--------------------------------|----------|
+| First-frame / TI2V | Natural-25 first-frame image | Pose path, action tokens, or model-specific camera payload | Wan-Fun, EasyAnimate, VerseCrafter, MagicWorld, Hunyuan WorldPlay, Lingbot, minWM-HY |
+| Source-video / TV2V | Source video clip | Re-render or camera-conditioned source-video contract | Hydra, Gen3C, LiveWorld, ReCamMaster, Spatia, InSpatio World |
+| Prompt plus controls / T2V | None beyond prompt | Native camera tokens or model-specific prompt/control files | minWM Wan Action2V, reported in a separate T2V track rather than the 23-model main table |
+| API prompt-camera | No explicit pose input | Camera instruction is written into the prompt | Kling, Hailuo, Wan API, HappyHorse |
+
+D1-CamPrec applies to models with explicit pose or trajectory targets. API and prompt-camera models use D1-CamAlign instead.
 
 ## Table of Contents
 
-- [Overview](#overview)
+- [What This Repository Provides](#what-this-repository-provides)
+- [Typical Use](#typical-use)
+- [Model Input Modes](#model-input-modes)
 - [Release artifacts](#release-artifacts)
 - [Benchmark Results](#benchmark-results)
 - [Installation](#installation)
-- [Quick start — compile](#quick-start--compile-no-gpu)
-- [Quick start — evaluate](#quick-start--evaluate)
-- [Quick start — Natural-25 prompts](#quick-start--natural-25-prompts)
+- [Quick start - compile](#quick-start--compile-no-gpu)
+- [Quick start - evaluate](#quick-start--evaluate)
+- [Quick start - Natural-25 prompts](#quick-start--natural-25-prompts)
 - [Evaluation dimensions](#evaluation-dimensions)
 - [Supported models](#supported-models)
 - [Adding a model](#adding-a-model)
 - [Documentation](#documentation)
 - [Citation](#citation)
-
----
-
-## Overview
-
-Most video-generation benchmarks measure **single-scene quality** — aesthetics, text alignment, motion smoothness. They miss whether a model maintains a *consistent 4D world state* across viewpoint changes.
-
-**WRBench** asks: if you look away and come back, is the world still there?
-
-We evaluate models along **six separable diagnostic dimensions**, grouped by whether content is currently in view (*visible*) or is judged after re-observation:
-
-| # | Dimension | Short name | What it measures |
-|---|-----------|------------|-----------------|
-| D1 | Requested-camera precision | CamPrec | Does the camera actually move as instructed? |
-| D1 | Prompt-camera alignment | CamAlign | For API models: does the prompt map to correct motion? |
-| D2 | Visual integrity | — | Is every frame free of collapse, blur, or distortion? |
-| D3 | Visible spatial consistency | — | Do spatial relations hold while objects are in view? |
-| D4 | Visible state consistency | — | Do object states remain coherent while in view? |
-| D5 | Re-observation spatial consistency | — | Do spatial relations hold after re-observation? |
-| D6 | Re-observation event-state consistency | — | Do event outcomes persist after re-observation? |
-
-D5 and D6 require **re-observation support** — the model must actually bring content back into frame before they can be scored.
-
-The evaluation uses the **Natural-25** scene/event grid: 25 scene types × 4 event categories, producing controlled viewpoint-intervention prompts. All data and the published 23-model results are **bundled with `pip install wrbench`**.
 
 ---
 
@@ -79,7 +94,7 @@ The main Hugging Face configs load directly with `datasets`: `variants`,
 
 Results for 23 models on the WRBench diagnostic profile (9,600 generated videos, 2,073 re-observation-supported rows for D5/D6). Full CSV at `src/wrbench/data/results/wrbench_23model_results.csv`.
 
-> **D5/D6 are scored on shared judgeable re-observation rows**: the model must bring the relevant content back into frame before re-observation spatial or event-state consistency can be checked. Models without a D1-CamPrec score use API prompt-camera control only.
+This is the frozen 23-model main table. Prompt-only T2V addenda are tracked separately; see [docs/eval/README.md](docs/eval/README.md) for the public scope and promotion rules.
 
 <details open>
 <summary><b>Camera-trained and video-to-video models</b></summary>
@@ -128,7 +143,9 @@ Results for 23 models on the WRBench diagnostic profile (9,600 generated videos,
 
 </details>
 
-Want your model on the list? See [Adding a model](#adding-a-model) and open a PR.
+Want your model in WRBench? See [Adding a model](#adding-a-model) and submit it
+to the matching surface: the 23-model main table for standard WRBench runs, or
+the separate T2V track for prompt-only addenda such as minWM Wan Action2V.
 
 ---
 
@@ -241,17 +258,17 @@ wrbench prompt task --deterministic --output variants.jsonl
 
 ## Evaluation dimensions
 
-WRBench is designed to be *separable*: each dimension can be scored independently, and models can achieve high D2–D4 with poor D1 (camera compliance) or vice versa. D5/D6 are only valid when **re-observation support** applies — the model must actually bring previously-out-of-view content back into frame before the state can be checked.
+WRBench is designed to be *separable*: each dimension can be scored independently, and models can achieve high D2-D4 with poor D1 camera compliance, or strong visual quality with weak returned-state consistency.
 
 | Dim | Full name | Scorer | Requires |
 |-----|-----------|--------|---------|
-| D1-CamPrec | Requested-camera precision | VGGT-Omega pose estimation | Pose-input models |
-| D1-CamAlign | Prompt-camera alignment | LLM intent parsing | All models |
+| D1-CamPrec | Requested-camera precision | VGGT-Omega pose estimation | Explicit pose/trajectory target |
+| D1-CamAlign | Prompt-camera alignment | LLM intent parsing | Prompt/API camera-control models |
 | D2 | Visual integrity | DINOv2 local/global features | — |
 | D3 | Visible spatial consistency | Qwen-3.5B VLM | — |
 | D4 | Visible state consistency | Qwen-3.5B VLM | — |
-| D5 | Re-observation spatial consistency | Qwen-3.5B VLM | Re-observation support |
-| D6 | Re-observation event-state consistency | Qwen-3.5B VLM | Re-observation support |
+| D5 | Re-observation spatial consistency | Qwen-3.5B VLM | Re-observation-supported rows only |
+| D6 | Re-observation event-state consistency | Qwen-3.5B VLM | Re-observation-supported rows only |
 
 Detailed scorer profiles and configuration: [docs/eval/README.md](docs/eval/README.md).
 
@@ -259,14 +276,15 @@ Detailed scorer profiles and configuration: [docs/eval/README.md](docs/eval/READ
 
 ## Supported models
 
-23 models across four control paradigms. Run `wrbench models` for the full registry with capability flags.
+The frozen public main table covers 23 models across four primary control paradigms. Run `wrbench models` for the full registry with capability flags and input requirements.
 
-| Paradigm | Examples |
-|----------|---------|
-| **V2V** (video-to-video re-render) | Hydra, VerseCrafter, ReCamMaster, Gen3C, Spatia, InSpatio World |
-| **Camera-conditioned** (pose input) | Wan-Fun series, LiveWorld, Lingbot |
-| **Interactive / action-driven** | Hunyuan WorldPlay, Hunyuan GameCraft, MagicWorld |
-| **API prompt-camera** | Kling, Hailuo, Wan API, HappyHorse |
+| Paradigm | Model input | Examples | Camera metric |
+|----------|-------------|----------|---------------|
+| **TV2V / source-video** | Source video + prompt | Hydra, Gen3C, LiveWorld, ReCamMaster, Spatia, InSpatio World | D1-CamPrec when a target trajectory is compiled |
+| **Camera-conditioned / TI2V** | First-frame image + prompt | Wan-Fun series, EasyAnimate, VerseCrafter, Lingbot, minWM-HY | D1-CamPrec |
+| **Interactive / action-driven** | First-frame image + prompt + native actions | Hunyuan WorldPlay, Hunyuan GameCraft, MagicWorld | D1-CamPrec or adapter-specific camera diagnostics |
+| **API prompt-camera** | Prompt-only camera instruction | Kling, Hailuo, Wan API, HappyHorse | D1-CamAlign |
+| **T2V addenda** | Prompt + native camera/control tokens | minWM Wan Action2V | Separate T2V diagnostic track; not part of the frozen 23-model main table |
 
 Per-model guides: [`docs/models/`](docs/models/).
 

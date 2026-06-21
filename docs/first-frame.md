@@ -16,19 +16,26 @@ print(image)
 print(manifest)
 ```
 
-Generate your own first frames:
+Generate your own first frames with explicit provider settings:
 
 ```bash
-# Mock provider (no API key, writes 1×1 PNG — good for dry-run)
-wrbench firstframe --out first_frames/ --family-id demo --prompt "A cat on a bed." --provider mock
+# Mock provider (writes a 1×1 placeholder PNG)
+wrbench firstframe --out first_frames/ --family-id demo --prompt "A cat on a bed." \
+  --provider mock --model mock --endpoint mock://local --size 1024x1024 --n 1 \
+  --overwrite-existing
 
 # Batch from families JSONL (uses t2i_scene field)
-wrbench firstframe --out first_frames/ --families-jsonl families.jsonl --provider mock
+wrbench firstframe --out first_frames/ --families-jsonl families.jsonl \
+  --provider mock --model mock --endpoint mock://local --size 1024x1024 --n 1 \
+  --overwrite-existing
 
 # Real generation (DashScope)
 pip install 'wrbench[firstframe]'
-export DASHSCOPE_API_KEY=...
-wrbench firstframe --out first_frames/ --families-jsonl families.jsonl --provider dashscope --model wan2.7-image-pro
+wrbench firstframe --out first_frames/ --families-jsonl families.jsonl \
+  --provider dashscope --model wan2.7-image-pro \
+  --api-key YOUR_API_KEY \
+  --endpoint https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation \
+  --size 1024*1024 --n 1 --overwrite-existing
 ```
 
 Output layout:
@@ -65,18 +72,20 @@ manifest = generate_first_frame(
     prompt="A sunny garden with a cat.",
     out_dir="first_frames/",
     provider="mock",
+    model="mock",
+    endpoint="mock://local",
+    size="1024x1024",
+    n=1,
 )
 print(manifest.image_path)
 ```
 
 ## Providers
 
-| Provider | Env | Notes |
+| Provider | Explicit inputs | Notes |
 |---|---|---|
-| `mock` | none | Test placeholder PNG |
-| `dashscope` | `DASHSCOPE_API_KEY` | wan2.7-image-pro, etc. |
-
-Set `WRBENCH_T2I_PROVIDER` and `WRBENCH_T2I_MODEL` to override defaults.
+| `mock` | `provider="mock"`, `model="mock"`, `endpoint="mock://local"`, `size`, `n` | Test placeholder PNG |
+| `dashscope` | `provider="dashscope"`, `model`, `api_key`, `endpoint`, `size`, `n` | Real image generation |
 
 ## Dependencies
 

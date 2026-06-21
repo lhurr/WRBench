@@ -23,8 +23,53 @@ def safe_video_id(video_id: Any) -> str:
     return re.sub(r"[^A-Za-z0-9_.-]+", "_", str(video_id)).strip("._") or "video"
 
 
-def _is_enabled(config: dict[str, Any] | None) -> bool:
-    return bool((config or {}).get("enabled", True))
+def _require_config(config: dict[str, Any] | None) -> dict[str, Any]:
+    if config is None:
+        raise ValueError("geometry scorer requires an explicit config")
+    return config
+
+
+def _require_config_value(config: dict[str, Any], key: str) -> Any:
+    if key not in config:
+        raise ValueError(f"geometry scorer config.{key} is required")
+    return config[key]
+
+
+def _require_str(config: dict[str, Any], key: str) -> str:
+    value = _require_config_value(config, key)
+    if value in (None, ""):
+        raise ValueError(f"geometry scorer config.{key} is required")
+    return str(value)
+
+
+def _require_float(config: dict[str, Any], key: str) -> float:
+    value = _require_config_value(config, key)
+    try:
+        return float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"geometry scorer config.{key} must be a number") from exc
+
+
+def _require_positive_int(config: dict[str, Any], key: str) -> int:
+    value = _require_config_value(config, key)
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"geometry scorer config.{key} must be a positive integer") from exc
+    if parsed <= 0:
+        raise ValueError(f"geometry scorer config.{key} must be a positive integer")
+    return parsed
+
+
+def _require_bool(config: dict[str, Any], key: str) -> bool:
+    value = _require_config_value(config, key)
+    if not isinstance(value, bool):
+        raise ValueError(f"geometry scorer config.{key} must be boolean")
+    return value
+
+
+def _is_enabled(config: dict[str, Any]) -> bool:
+    return _require_bool(config, "enabled")
 
 
 def _is_static_row(row: dict[str, Any]) -> bool:
@@ -183,13 +228,6 @@ def _downsample_points(points: np.ndarray, max_points: int) -> np.ndarray:
     return points[indices]
 
 
-def _positive_int(value: Any, default: int) -> int:
-    try:
-        return max(int(value), 1)
-    except (TypeError, ValueError):
-        return default
-
-
 def _nearest_distances(source: np.ndarray, target: np.ndarray, chunk_size: int) -> np.ndarray:
     nearest = np.empty(len(source), dtype=np.float64)
     for start in range(0, len(source), chunk_size):
@@ -209,9 +247,9 @@ def score_pointcloud_geometry(
     reference_points: np.ndarray,
     candidate_points: np.ndarray,
     *,
-    error_scale: float = 1.0,
-    max_points: int = 4096,
-    chunk_size: int = 512,
+    error_scale: float,
+    max_points: int,
+    chunk_size: int,
 ) -> dict[str, Any]:
     reference = np.asarray(reference_points, dtype=np.float64)
     candidate = np.asarray(candidate_points, dtype=np.float64)
@@ -221,8 +259,10 @@ def score_pointcloud_geometry(
     candidate = candidate[np.all(np.isfinite(candidate), axis=1)]
     if len(reference) == 0 or len(candidate) == 0:
         return {"geometry_status": "invalid_pointcloud"}
-    max_points = _positive_int(max_points, 4096)
-    chunk_size = _positive_int(chunk_size, 512)
+    max_points = int(max_points)
+    chunk_size = int(chunk_size)
+    if max_points <= 0 or chunk_size <= 0:
+        raise ValueError("max_points and chunk_size must be positive")
     reference = _downsample_points(reference, max_points)
     candidate = _downsample_points(candidate, max_points)
     error = _symmetric_nearest_error(reference, candidate, chunk_size=chunk_size)
@@ -238,14 +278,12 @@ def score_pointcloud_geometry(
 
 
 def _cached_npz_path(row: dict[str, Any], config: dict[str, Any]) -> Path:
-    cache_root = Path(config.get("cache_root") or ".cache/reward_scoring")
+    cache_root = Path(_require_str(config, "cache_root"))
     return cache_root / "geometry" / f"{safe_video_id(row.get('video_id'))}.npz"
 
 
 def _run_extractor(row: dict[str, Any], output_npz: Path, config: dict[str, Any]) -> str | None:
-    template = config.get("extractor_command")
-    if not template:
-        return "extractor_unavailable"
+    template = _require_str(config, "extractor_command")
     video_path = _video_path(row)
     if not video_path:
         return "missing_video"
@@ -254,13 +292,20 @@ def _run_extractor(row: dict[str, Any], output_npz: Path, config: dict[str, Any]
         video_path=shlex.quote(str(video_path)),
         video_id=shlex.quote(str(row.get("video_id"))),
         output_npz=shlex.quote(str(output_npz)),
-        gen3c_code_dir=shlex.quote(str(config.get("gen3c_code_dir", ""))),
-        moge_checkpoint=shlex.quote(str(config.get("moge_checkpoint", ""))),
-        sample_frames=shlex.quote(str(config.get("sample_frames", ""))),
-        device=shlex.quote(str(config.get("device", "cpu"))),
+        gen3c_code_dir=shlex.quote(_require_str(config, "gen3c_code_dir")),
+        moge_checkpoint=shlex.quote(_require_str(config, "moge_checkpoint")),
+        sample_frames=shlex.quote(str(_require_config_value(config, "sample_frames"))),
+        device=shlex.quote(_require_str(config, "device")),
     )
     try:
-        result = subprocess.run(command, shell=True, check=False, capture_output=True, text=True, timeout=config.get("timeout"))
+        result = subprocess.run(
+            command,
+            shell=True,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=_require_config_value(config, "timeout"),
+        )
     except FileNotFoundError:
         return "extractor_unavailable"
     except subprocess.TimeoutExpired:
@@ -306,13 +351,16 @@ def _score_row_against_reference(
     if status:
         return _with_geometry_status(row, status, static_gt_video_id=static_gt_video_id)
     try:
-        candidate_points = load_point_cloud_npz(npz_path, sample_frames=config.get("sample_frames"))
+        candidate_points = load_point_cloud_npz(
+            npz_path,
+            sample_frames=_require_config_value(config, "sample_frames"),
+        )
         score = score_pointcloud_geometry(
             reference_points,
             candidate_points,
-            error_scale=float(config.get("error_scale", 1.0)),
-            max_points=config.get("max_points", 4096),
-            chunk_size=config.get("chunk_size", 512),
+            error_scale=_require_float(config, "error_scale"),
+            max_points=_require_positive_int(config, "max_points"),
+            chunk_size=_require_positive_int(config, "chunk_size"),
         )
     except ValueError:
         return _with_geometry_status(row, "invalid_pointcloud", static_gt_video_id=static_gt_video_id)
@@ -326,9 +374,9 @@ def _score_row_against_reference(
     return enriched
 
 
-def score_geometry_group(rows: list[dict[str, Any]], config: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+def score_geometry_group(rows: list[dict[str, Any]], config: dict[str, Any]) -> list[dict[str, Any]]:
     """Score a prompt group against its static camera reference row."""
-    cfg = dict(config or {})
+    cfg = dict(_require_config(config))
     if not _is_enabled(cfg):
         return [_with_geometry_status(row, "disabled") for row in rows]
     reference = next((row for row in rows if _is_static_row(row)), None)
@@ -339,7 +387,10 @@ def score_geometry_group(rows: list[dict[str, Any]], config: dict[str, Any] | No
     if ref_status:
         return [_with_geometry_status(row, ref_status, static_gt_video_id=reference_id) for row in rows]
     try:
-        reference_points = load_point_cloud_npz(ref_path, sample_frames=cfg.get("sample_frames"))
+        reference_points = load_point_cloud_npz(
+            ref_path,
+            sample_frames=_require_config_value(cfg, "sample_frames"),
+        )
     except ValueError:
         return [_with_geometry_status(row, "invalid_pointcloud", static_gt_video_id=reference_id) for row in rows]
     except Exception:

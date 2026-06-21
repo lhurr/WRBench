@@ -493,7 +493,9 @@ def build_video_processor_kwargs(
         videos_kwargs["fps"] = float(fps)
         videos_kwargs["do_sample_frames"] = True
     valid_kwargs = video_processor_valid_kwargs(processor)
-    video_backend = os.environ.get("WORLD_STATE_VIDEO_BACKEND", "decord").strip()
+    video_backend = os.environ["WORLD_STATE_VIDEO_BACKEND"].strip()
+    if not video_backend:
+        raise RuntimeError("WORLD_STATE_VIDEO_BACKEND is required")
     if video_backend and "video_backend" in valid_kwargs:
         videos_kwargs["video_backend"] = video_backend
     for key, value in {
@@ -931,7 +933,9 @@ class LocalQwen35ProbeLogprobScorer:
         self.processor = AutoProcessor.from_pretrained(
             str(model_path), trust_remote_code=True, local_files_only=True
         )
-        video_backend = os.environ.get("WORLD_STATE_VIDEO_BACKEND", "decord").strip()
+        video_backend = os.environ["WORLD_STATE_VIDEO_BACKEND"].strip()
+        if not video_backend:
+            raise RuntimeError("WORLD_STATE_VIDEO_BACKEND is required")
         video_processor = getattr(self.processor, "video_processor", None)
         if video_backend and video_processor is not None:
             from transformers.video_utils import load_video  # type: ignore
@@ -1279,19 +1283,18 @@ def build_run_config(
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Runtime V2 local Qwen3.5 probe-logprob scorer")
     parser.add_argument("--experiment-id", required=True)
-    parser.add_argument("--prompt-mode", default=DEFAULT_PROMPT_MODE)
+    parser.add_argument("--prompt-mode", required=True)
     parser.add_argument(
         "--task-context-mode",
         choices=tuple(sorted(SUPPORTED_TASK_CONTEXT_MODES)),
-        default=TASK_CONTEXT_MODE_ALL_MANIFEST_METADATA,
+        required=True,
     )
     parser.add_argument("--strict-manifest-contract", action="store_true")
-    parser.add_argument("--num-shards", type=int, default=1)
-    parser.add_argument("--shard-id", type=int, default=0)
+    parser.add_argument("--num-shards", type=int, required=True)
+    parser.add_argument("--shard-id", type=int, required=True)
     parser.add_argument(
         "--source-scores",
         type=Path,
-        default=None,
         help=(
             "Optional legacy/source score JSON list. If omitted, the manifest "
             "is used as the source metadata so this standalone scorer can score "
@@ -1300,33 +1303,30 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--manifest-path", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
-    parser.add_argument("--pair-allowlist-jsonl", type=Path, default=None)
+    parser.add_argument("--pair-allowlist-jsonl", type=Path)
     parser.add_argument("--require-rebuilt-pool-20260519", action="store_true")
-    parser.add_argument(
-        "--expected-pair-allowlist-sha256",
-        default=REBUILT_POOL_20260519_PAIR_ALLOWLIST_SHA256,
-    )
+    parser.add_argument("--expected-pair-allowlist-sha256")
     parser.add_argument("--model-path", type=Path, required=True, help="Local Qwen3.5 model directory (set via wrbench.runtime.json eval.scorers.qwen35_model).")
-    parser.add_argument("--vlm-name", default=DEFAULT_VLM_NAME)
-    parser.add_argument("--loader-family", choices=("auto", "qwen3vl", "qwen25vl"), default="auto")
-    parser.add_argument("--fps", default=DEFAULT_FPS)
-    parser.add_argument("--max-videos", type=int, default=0)
+    parser.add_argument("--vlm-name", required=True)
+    parser.add_argument("--loader-family", choices=("auto", "qwen3vl", "qwen25vl"), required=True)
+    parser.add_argument("--fps", required=True)
+    parser.add_argument("--max-videos", type=int, required=True)
     parser.add_argument("--skip-existing", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--merge-only", action="store_true")
     parser.add_argument("--allow-incomplete-merge", action="store_true")
-    parser.add_argument("--dtype", default=DEFAULT_DTYPE)
-    parser.add_argument("--attn-implementation", default=DEFAULT_ATTN_IMPLEMENTATION)
-    parser.add_argument("--local-rank", type=int, default=None)
-    parser.add_argument("--num-samples", type=int, default=1)
-    parser.add_argument("--progress-every", type=int, default=1)
-    parser.add_argument("--video-min-pixels", type=int, default=None)
-    parser.add_argument("--video-max-pixels", type=int, default=None)
-    parser.add_argument("--evidence-jsonl", type=Path, default=None)
+    parser.add_argument("--dtype", required=True)
+    parser.add_argument("--attn-implementation", required=True)
+    parser.add_argument("--local-rank", type=int, required=True)
+    parser.add_argument("--num-samples", type=int, required=True)
+    parser.add_argument("--progress-every", type=int, required=True)
+    parser.add_argument("--video-min-pixels", type=int)
+    parser.add_argument("--video-max-pixels", type=int)
+    parser.add_argument("--evidence-jsonl", type=Path)
     parser.add_argument(
         "--evidence-context-mode",
         choices=("visibility_v1", "subquestion_v1"),
-        default="visibility_v1",
+        required=True,
     )
     args = parser.parse_args(argv)
     if args.prompt_mode not in SUPPORTED_PROMPT_MODES:
@@ -1373,6 +1373,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         parser.error("--video-min-pixels must be <= --video-max-pixels")
     if args.require_rebuilt_pool_20260519 and args.pair_allowlist_jsonl is None:
         parser.error("--require-rebuilt-pool-20260519 requires --pair-allowlist-jsonl")
+    if args.require_rebuilt_pool_20260519 and not args.expected_pair_allowlist_sha256:
+        parser.error("--require-rebuilt-pool-20260519 requires --expected-pair-allowlist-sha256")
     if str(args.fps) != "full":
         try:
             fps_value = float(args.fps)
@@ -1409,7 +1411,7 @@ def _stage_result(
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    local_rank = int(args.local_rank if args.local_rank is not None else os.environ.get("LOCAL_RANK", 0))
+    local_rank = int(args.local_rank)
     manifest = load_json(args.manifest_path)
     source_scores = load_json(args.source_scores) if args.source_scores else manifest
     if not isinstance(manifest, list) or not isinstance(source_scores, list):

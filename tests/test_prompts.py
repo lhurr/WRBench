@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import pytest
+
 from wrbench.prompts.camera_text import (
+    anchor_subject_in_prompt,
     assemble_ti2v_prompt,
     build_prompt_to_send,
     camera_clause,
+    extract_subject_phrase,
     preset_camera_text,
 )
 from wrbench.prompts.scene import load_t2i_scene_system_prompt
@@ -37,6 +41,29 @@ def test_assemble_ti2v_prompt() -> None:
     assert prompt.startswith("A cat sits on the left.")
     assert "Immediately, it jumps." in prompt
     assert "empty floor" in prompt
+
+
+def test_assemble_ti2v_prompt_subject_anchored() -> None:
+    prompt = assemble_ti2v_prompt(
+        "Scene setup.",
+        "Immediately, he walks toward the bed.",
+        "he",
+        "empty floor",
+        "yaw_LR",
+        subject_phrase="The adult person",
+    )
+    assert "Immediately, the adult person walks toward the bed." in prompt
+    assert "until he is out of frame" in prompt
+
+
+def test_extract_subject_phrase() -> None:
+    assert extract_subject_phrase("The child walks toward the dining chair.") == "The child"
+    assert extract_subject_phrase("An adult person stands on the bedroom floor, facing the bed.") == "An adult person"
+
+
+def test_anchor_subject_in_prompt_noop_when_already_explicit() -> None:
+    prompt = "Scene. Immediately, the adult sits on the floor."
+    assert anchor_subject_in_prompt(prompt, "The adult person") == prompt
 
 
 def test_hailuo_prompt_assembly() -> None:
@@ -89,6 +116,8 @@ def test_deterministic_variants_minimal() -> None:
     variants = generate_variants_deterministic(candidates, families)
     assert len(variants) == 16  # 4 tiers × 4 gaps
     assert all("ti2v_prompt" in v for v in variants)
+    t1_yaw = next(v for v in variants if v["reasoning_tier"] == "T1" and v["oov_gap"] == "yaw_LR")
+    assert "Immediately, it walks" in t1_yaw["ti2v_prompt"]
     assert detect_pronoun(families["test_family"]["t2i_scene"], "a cat") == "it"
     scene_start = build_scene_start(families["test_family"]["t2i_scene"], families["test_family"])
     assert "food bowl" in scene_start.lower()
@@ -110,3 +139,25 @@ def test_generate_t2i_scene_with_mock_llm() -> None:
 
     text = generate_t2i_scene(family, llm_call=mock_llm)
     assert "garden" in text
+
+
+def test_call_llm_json_requires_explicit_provider() -> None:
+    from wrbench.prompts.llm import call_llm_json
+
+    with pytest.raises(RuntimeError, match="LLM provider required"):
+        call_llm_json(
+            system_prompt="system",
+            user_message="user",
+            model="test-model",
+        )
+
+
+def test_call_llm_json_requires_explicit_model() -> None:
+    from wrbench.prompts.llm import call_llm_json
+
+    with pytest.raises(RuntimeError, match="LLM model required"):
+        call_llm_json(
+            system_prompt="system",
+            user_message="user",
+            provider="openai",
+        )

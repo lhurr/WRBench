@@ -2,18 +2,29 @@
 
 from __future__ import annotations
 
+import shutil
 import subprocess
 from pathlib import Path
 from typing import Any
 
 from wrbench.backends.base import GenerationBackend, GenerationRequest, GenerationResult
 from wrbench.backends.launchers.easyanimate import build_easyanimate_command, easyanimate_expected_output
+from wrbench.backends.launchers.minwm_hy import (
+    build_minwm_hy_command,
+    minwm_hy_expected_output,
+    validate_minwm_hy_runtime,
+)
+from wrbench.backends.launchers.minwm_wan import (
+    build_minwm_wan_command,
+    minwm_wan_expected_output,
+    validate_minwm_wan_runtime,
+)
 from wrbench.backends.launchers.spatia import build_spatia_command
 from wrbench.registry import canonical_model_key, input_kind, model_record
 from wrbench.runtime import ModelRuntime, RuntimeConfig
 
 
-_SUPPORTED_MODELS = frozenset({"easyanimate-v51-camera", "spatia"})
+_SUPPORTED_MODELS = frozenset({"easyanimate-v51-camera", "minwm-hy-action2v", "minwm-wan-action2v", "spatia"})
 
 
 class LocalSubprocessBackend:
@@ -46,10 +57,18 @@ class LocalSubprocessBackend:
             missing.append("repo_root")
         if key == "easyanimate-v51-camera" and (not node.model_path or not Path(str(node.model_path)).exists()):
             missing.append("model_path")
+        if key == "minwm-hy-action2v":
+            missing.extend(validate_minwm_hy_runtime(node))
+        if key == "minwm-wan-action2v":
+            missing.extend(validate_minwm_wan_runtime(node))
         if key == "spatia":
-            for field in ("vace_path", "lora_path"):
+            for field in ("vace_path", "lora_path", "ffmpeg_bin"):
                 if field not in node.extra_paths or not Path(str(node.extra_paths[field])).is_file():
                     missing.append(f"extra_paths.{field}")
+            for field in ("num_inference_steps", "cfg_scale", "sigma_shift", "seed"):
+                if field not in node.extra_paths or not str(node.extra_paths[field]).strip():
+                    missing.append(f"extra_paths.{field}")
+        missing = list(dict.fromkeys(missing))
         if missing:
             return False, f"missing or invalid runtime fields: {', '.join(missing)}"
         return True, f"ready for {key}"
@@ -66,38 +85,61 @@ class LocalSubprocessBackend:
         output_path = Path(request.output_path).resolve()
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
-        try:
-            if key == "easyanimate-v51-camera":
-                if not request.image_path:
-                    return GenerationResult(success=False, message="easyanimate requires image_path")
-                cmd, cwd, env, _expected_output = build_easyanimate_command(
-                    model=key,
-                    payload=payload_dict,
-                    runtime=node,
-                    image_path=Path(request.image_path).resolve(),
-                    prompt=request.prompt,
-                    output_path=output_path,
-                )
-            elif key == "spatia":
-                if not request.source_video_path:
-                    return GenerationResult(success=False, message="spatia requires source_video_path")
-                record = model_record(key)
-                cmd, cwd, env, frame_path = build_spatia_command(
-                    model=key,
-                    payload=payload_dict,
-                    runtime=node,
-                    source_video_path=Path(request.source_video_path).resolve(),
-                    prompt=request.prompt,
-                    output_path=output_path,
-                    width=record.default_width,
-                    height=record.default_height,
-                    max_frames=record.default_frames,
-                )
-                payload_dict = {**payload_dict, "first_frame_png": str(frame_path)}
-            else:
-                return GenerationResult(success=False, message=f"unsupported model {key}")
-        except (OSError, ValueError, FileNotFoundError) as exc:
-            return GenerationResult(success=False, message=str(exc))
+        if key == "easyanimate-v51-camera":
+            if not request.image_path:
+                raise ValueError("easyanimate requires image_path")
+            if not str(request.prompt).strip():
+                raise ValueError("easyanimate-v51-camera requires prompt")
+            cmd, cwd, env, _expected_output = build_easyanimate_command(
+                model=key,
+                payload=payload_dict,
+                runtime=node,
+                image_path=Path(request.image_path).resolve(),
+                prompt=request.prompt,
+                output_path=output_path,
+            )
+        elif key == "spatia":
+            if not request.source_video_path:
+                raise ValueError("spatia requires source_video_path")
+            if not str(request.prompt).strip():
+                raise ValueError("spatia requires prompt")
+            record = model_record(key)
+            cmd, cwd, env, frame_path = build_spatia_command(
+                model=key,
+                payload=payload_dict,
+                runtime=node,
+                source_video_path=Path(request.source_video_path).resolve(),
+                prompt=request.prompt,
+                output_path=output_path,
+                width=record.default_width,
+                height=record.default_height,
+                max_frames=record.default_frames,
+                fps=record.default_fps,
+            )
+            payload_dict = {**payload_dict, "first_frame_png": str(frame_path)}
+        elif key == "minwm-hy-action2v":
+            if not request.image_path:
+                raise ValueError("minwm-hy-action2v requires image_path")
+            if not str(request.prompt).strip():
+                raise ValueError("minwm-hy-action2v requires prompt")
+            cmd, cwd, env, output_dir = build_minwm_hy_command(
+                model=key,
+                payload=payload_dict,
+                runtime=node,
+                image_path=Path(request.image_path).resolve(),
+                prompt=request.prompt,
+                output_path=output_path,
+            )
+        elif key == "minwm-wan-action2v":
+            cmd, cwd, env, output_dir = build_minwm_wan_command(
+                model=key,
+                payload=payload_dict,
+                runtime=node,
+                prompt=request.prompt,
+                output_path=output_path,
+            )
+        else:
+            raise ValueError(f"unsupported model {key}")
 
         proc = subprocess.run(
             cmd,
@@ -107,7 +149,7 @@ class LocalSubprocessBackend:
             text=True,
         )
         if proc.returncode != 0:
-            tail = (proc.stdout or proc.stderr or "")[-4096:]
+            tail = "\n".join(part for part in (proc.stdout, proc.stderr) if part)[-4096:]
             return GenerationResult(
                 success=False,
                 output_path=output_path if output_path.is_file() else None,
@@ -121,6 +163,24 @@ class LocalSubprocessBackend:
                 if output_path.is_file():
                     output_path.unlink()
                 produced.replace(output_path)
+            produced = output_path
+        elif key == "minwm-wan-action2v":
+            produced = minwm_wan_expected_output(output_dir)
+            if produced is None:
+                return GenerationResult(
+                    success=False,
+                    message=f"subprocess exited 0 but no minWM Wan mp4 found under: {output_dir}",
+                )
+            shutil.copy2(produced, output_path)
+            produced = output_path
+        elif key == "minwm-hy-action2v":
+            produced = minwm_hy_expected_output(output_dir)
+            if produced is None:
+                return GenerationResult(
+                    success=False,
+                    message=f"subprocess exited 0 but no minWM HY mp4 found under: {output_dir}",
+                )
+            shutil.copy2(produced, output_path)
             produced = output_path
 
         if not produced.is_file():

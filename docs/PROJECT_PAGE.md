@@ -24,7 +24,7 @@ public external hit counter rather than strict unique-user analytics.
 ```bash
 cd docs
 python3 -m http.server 8080
-# open http://127.0.0.1:8080/
+# open the local preview URL shown by Python
 ```
 
 ## Publish (GitHub Pages)
@@ -53,3 +53,8 @@ aligned on these canonical URLs:
 - Results: <https://huggingface.co/datasets/WRBench/wrbench-results>
 - Human annotations: <https://huggingface.co/datasets/WRBench/wrbench-human-annotations>
 - Videos: <https://huggingface.co/datasets/WRBench/wrbench-videos>
+
+The frozen project-page table remains the 23-model paper table. Text-to-video
+addenda, including `minwm-wan-action2v`, are released separately in the results
+dataset as `wrbench_t2v_results.json` until the T2V target-certification policy
+is promoted into the main table.

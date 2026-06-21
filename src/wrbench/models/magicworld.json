@@ -21,7 +21,7 @@
   "default_width": 832,
   "input_kind": "image",
   "key": "magicworld",
-  "notes": "MagicWorld; accepts yaw_LR/yaw_RL/pan_LR/pan_RL/static action segment profiles; native trajectory via MagicWorldOperator with compile-only fallback when openworldlib is unavailable.",
+  "notes": "MagicWorld; accepts yaw_LR/yaw_RL/pan_LR/pan_RL/static action segment profiles with deterministic WRBench canonical target rows.",
   "payload_type": "magicworld_action_segments",
   "status": "active"
 }

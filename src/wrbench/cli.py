@@ -285,27 +285,53 @@ def _cmd_generate(args: argparse.Namespace) -> int:
                 file=sys.stderr,
             )
             return 1
-
-    if args.no_dry_run:
-        from wrbench.backends.registry import resolve_backend
-
-        backend = resolve_backend(key)
-        if hasattr(backend, "available_for"):
-            ok, reason = backend.available_for(key)  # type: ignore[attr-defined]
-        else:
-            ok, reason = backend.available()
-        if not ok:
+    elif input_kind == "none":
+        if image_path or source_video_path:
             print(
-                f"error: --no-dry-run requested but no real backend is available for {key!r}: {reason}",
-                file=sys.stderr,
-            )
-            print(
-                "  Configure wrbench.runtime.json (see wrbench.runtime.example.json) "
-                "or omit --no-dry-run to compile sidecars only.",
+                f"error: model {key!r} does not use --image or --source-video; use --prompt for text conditioning.",
                 file=sys.stderr,
             )
             return 1
-        dry_run = False
+        if args.no_dry_run and not str(args.prompt).strip():
+            print(
+                f"error: model {key!r} is prompt-only and requires --prompt for --no-dry-run.",
+                file=sys.stderr,
+            )
+            return 1
+
+        if args.no_dry_run:
+            from wrbench.backends.registry import resolve_backend
+            from wrbench.runtime import load_runtime_config
+
+            runtime = load_runtime_config(Path(args.runtime_config)) if args.runtime_config else None
+            backend = resolve_backend(key, runtime=runtime)
+            if getattr(backend, "name", "") == "dry_run":
+                print(
+                    f"error: --no-dry-run requested but only the dry-run backend is available for {key!r}.",
+                    file=sys.stderr,
+                )
+                print(
+                    "  Configure wrbench.runtime.json (see wrbench.runtime.example.json) "
+                    "or omit --no-dry-run to compile sidecars only.",
+                    file=sys.stderr,
+                )
+                return 1
+            if hasattr(backend, "available_for"):
+                ok, reason = backend.available_for(key)  # type: ignore[attr-defined]
+            else:
+                ok, reason = backend.available()
+            if not ok:
+                print(
+                    f"error: --no-dry-run requested but no real backend is available for {key!r}: {reason}",
+                    file=sys.stderr,
+                )
+                print(
+                    "  Configure wrbench.runtime.json (see wrbench.runtime.example.json) "
+                    "or omit --no-dry-run to compile sidecars only.",
+                    file=sys.stderr,
+                )
+                return 1
+            dry_run = False
 
     try:
         result = wrbench.compile_camera(
@@ -320,6 +346,7 @@ def _cmd_generate(args: argparse.Namespace) -> int:
             fps=args.fps,
             num_frames=args.num_frames,
             work_dir=args.work_dir,
+            runtime_config=args.runtime_config,
             dry_run=dry_run,
         )
     except (ValueError, KeyError, OSError, RuntimeError) as exc:
@@ -398,7 +425,7 @@ def _doctor_check_model(key: str) -> tuple[bool, list[str]]:
 
         caps = record.capabilities or {}
         if caps.get("supports_static", True):
-            camera = "static@16"
+            camera = f"static@{int(record.default_frames)}"
         else:
             camera = wrbench.presets.yaw_LR(peak_deg=30, frames=int(record.default_frames)).to_string()
 
@@ -410,7 +437,7 @@ def _doctor_check_model(key: str) -> tuple[bool, list[str]]:
         }
         if record.input_kind == "image":
             compile_kwargs["image"] = dummy_image
-        else:
+        elif record.input_kind == "source_video":
             compile_kwargs["source_video"] = dummy_video
 
         try:
@@ -556,9 +583,18 @@ def _cmd_prompt(args: argparse.Namespace) -> int:
         )
 
         if args.preset:
+            if not args.pronoun or not args.offscreen_area:
+                print("prompt camera --preset requires --pronoun and --offscreen-area", file=sys.stderr)
+                return 2
             text = preset_camera_text(args.preset, pronoun=args.pronoun, offscreen_area=args.offscreen_area)
             result = {"preset": args.preset, "camera_text": text}
         elif args.assemble:
+            if not all((args.scene_start, args.event, args.pronoun, args.offscreen_area, args.gap)):
+                print(
+                    "prompt camera --assemble requires --scene-start, --event, --pronoun, --offscreen-area, and --gap",
+                    file=sys.stderr,
+                )
+                return 2
             result = {
                 "ti2v_prompt": assemble_ti2v_prompt(
                     args.scene_start,
@@ -569,6 +605,9 @@ def _cmd_prompt(args: argparse.Namespace) -> int:
                 )
             }
         elif args.model and args.source_prompt:
+            if not args.camera_motion:
+                print("prompt camera --model + --source-prompt requires --camera-motion", file=sys.stderr)
+                return 2
             result = {
                 "prompt_to_send": build_prompt_to_send(
                     args.source_prompt,
@@ -591,6 +630,8 @@ def _cmd_prompt(args: argparse.Namespace) -> int:
             model=args.model,
             temperature=args.temperature,
             provider=args.provider,
+            api_key=args.api_key,
+            base_url=args.base_url,
         )
         print(json.dumps(enriched, indent=2, ensure_ascii=False))
         return 0
@@ -662,7 +703,11 @@ def _cmd_firstframe(args: argparse.Namespace) -> int:
             out_dir=out_dir,
             provider=args.provider,
             model=args.model,
-            skip_existing=not args.force,
+            api_key=args.api_key,
+            endpoint=args.endpoint,
+            size=args.size,
+            n=args.n,
+            skip_existing=args.skip_existing,
         )
     elif args.prompt and args.family_id:
         manifests = [
@@ -672,6 +717,10 @@ def _cmd_firstframe(args: argparse.Namespace) -> int:
                 out_dir=out_dir,
                 provider=args.provider,
                 model=args.model,
+                api_key=args.api_key,
+                endpoint=args.endpoint,
+                size=args.size,
+                n=args.n,
             )
         ]
     else:
@@ -755,6 +804,15 @@ def _cmd_eval(args: argparse.Namespace) -> int:
             poses_file=args.poses_file,
             default_frames=args.default_frames,
             sidecar_profile_gate=args.sidecar_profile_gate,
+            predicted_pose_type=args.predicted_pose_type,
+            predicted_camera_convention=args.predicted_camera_convention,
+            target_camera_convention=args.target_camera_convention,
+            rot_scale_deg=args.rot_scale_deg,
+            trans_scale=args.trans_scale,
+            yaw_weak_threshold_deg=args.yaw_weak_threshold_deg,
+            pan_weak_threshold=args.pan_weak_threshold,
+            static_rot_threshold_deg=args.static_rot_threshold_deg,
+            static_trans_threshold=args.static_trans_threshold,
         )
 
     if args.eval_command == "d1-camalign":
@@ -772,7 +830,7 @@ def _cmd_eval(args: argparse.Namespace) -> int:
             eval_runtime=eval_runtime,
             input_jsonl=Path(args.input_jsonl),
             output_root=Path(args.output_root),
-            cache_root=Path(args.cache_root) if args.cache_root else None,
+            cache_root=Path(args.cache_root),
             execution_mode=args.execution_mode,
         )
 
@@ -843,7 +901,7 @@ def _build_parser() -> argparse.ArgumentParser:
         help='Camera script, e.g. "yaw:left:60@40,yaw:right:60@41".',
     )
     p_actions.add_argument(
-        "--fps", type=int, default=16, metavar="N", help="Frames per second (default: 16)."
+        "--fps", type=int, required=True, metavar="N", help="Frames per second."
     )
     p_actions.add_argument("--json", action="store_true", help="Output as JSON.")
 
@@ -867,51 +925,52 @@ def _build_parser() -> argparse.ArgumentParser:
         "--source-video", metavar="PATH", dest="source_video",
         help="Input source video (required for V2V models).",
     )
-    p_gen.add_argument("--prompt", default="", metavar="TEXT", help="Text prompt.")
-    p_gen.add_argument("--width", type=int, default=832, metavar="N", help="Frame width (default: 832).")
-    p_gen.add_argument("--height", type=int, default=480, metavar="N", help="Frame height (default: 480).")
-    p_gen.add_argument("--fps", type=int, default=16, metavar="N", help="Frames per second (default: 16).")
+    p_gen.add_argument("--prompt", required=True, metavar="TEXT", help="Text prompt.")
+    p_gen.add_argument("--width", type=int, metavar="N", help="Override model registry frame width.")
+    p_gen.add_argument("--height", type=int, metavar="N", help="Override model registry frame height.")
+    p_gen.add_argument("--fps", type=int, metavar="N", help="Override model registry frames per second.")
     p_gen.add_argument(
-        "--num-frames", type=int, default=None, dest="num_frames",
+        "--num-frames", type=int, dest="num_frames",
         metavar="N", help="Override total frame count.",
     )
     p_gen.add_argument("--work-dir", metavar="DIR", dest="work_dir", help="Working directory for scratch files.")
+    p_gen.add_argument("--runtime-config", metavar="PATH", dest="runtime_config", help="Explicit wrbench.runtime.json path for real generation.")
     p_gen.add_argument(
         "--no-dry-run",
         action="store_true",
         dest="no_dry_run",
         help=(
-            "Disable dry-run mode. NOTE: real generation requires a backend that is not yet "
-            "wired; this flag currently behaves like dry-run and emits a warning."
+            "Disable dry-run mode and invoke the configured real-generation backend. "
+            "Requires wrbench.runtime.json."
         ),
     )
     # Preset parametrisation flags
     p_gen.add_argument(
-        "--peak-deg", type=float, default=None, dest="peak_deg",
+        "--peak-deg", type=float, dest="peak_deg",
         metavar="DEG", help="Override preset peak_deg (yaw/pitch presets).",
     )
     p_gen.add_argument(
-        "--amount", type=float, default=None,
+        "--amount", type=float,
         metavar="A", help="Override preset amount (translation presets).",
     )
     p_gen.add_argument(
-        "--frames", type=int, default=None,
+        "--frames", type=int,
         metavar="N", help="Override preset total frame count.",
     )
 
     # profile
     p_prof = sub.add_parser("profile", help="Profile a generation command.")
-    p_prof.add_argument("--out-dir", default=".", metavar="DIR", help="Output directory for profile artifacts.")
-    p_prof.add_argument("--name", default="run", metavar="NAME", help="Artifact filename stem.")
-    p_prof.add_argument("--model", default="", metavar="MODEL")
-    p_prof.add_argument("--profile", default="", metavar="PROFILE")
-    p_prof.add_argument("--camera", default="", metavar="CAMERA")
-    p_prof.add_argument("--scene-id", default="", dest="scene_id", metavar="ID")
-    p_prof.add_argument("--gpu-width", type=int, default=1, dest="gpu_width")
-    p_prof.add_argument("--output-video-seconds", type=float, default=None, dest="output_video_seconds")
-    p_prof.add_argument("--generation-status", default=None, dest="generation_status")
-    p_prof.add_argument("--sampling-interval", type=float, default=0.5, dest="sampling_interval")
-    p_prof.add_argument("--cwd", default=os.getcwd(), metavar="DIR")
+    p_prof.add_argument("--out-dir", required=True, metavar="DIR", help="Output directory for profile artifacts.")
+    p_prof.add_argument("--name", required=True, metavar="NAME", help="Artifact filename stem.")
+    p_prof.add_argument("--model", metavar="MODEL")
+    p_prof.add_argument("--profile", metavar="PROFILE")
+    p_prof.add_argument("--camera", metavar="CAMERA")
+    p_prof.add_argument("--scene-id", dest="scene_id", metavar="ID")
+    p_prof.add_argument("--gpu-width", type=int, required=True, dest="gpu_width")
+    p_prof.add_argument("--output-video-seconds", type=float, dest="output_video_seconds")
+    p_prof.add_argument("--generation-status", dest="generation_status")
+    p_prof.add_argument("--sampling-interval", type=float, required=True, dest="sampling_interval")
+    p_prof.add_argument("--cwd", required=True, metavar="DIR")
     p_prof.add_argument("--log", action="store_true", help="Capture command stdout/stderr to a log file.")
     p_prof.add_argument("--no-trace", action="store_true", help="Skip GPU trace JSONL.")
     p_prof.add_argument("--json", action="store_true", help="Print full profile JSON to stdout.")
@@ -920,7 +979,7 @@ def _build_parser() -> argparse.ArgumentParser:
     # profile-summary
     p_psum = sub.add_parser("profile-summary", help="Summarize resource profile JSON files.")
     p_psum.add_argument("paths", nargs="+", metavar="PATH", help="Profile JSON, JSONL, or directory.")
-    p_psum.add_argument("--format", choices=("json", "csv", "markdown"), default="json")
+    p_psum.add_argument("--format", choices=("json", "csv", "markdown"), required=True)
     p_psum.add_argument("--output", metavar="PATH")
 
     # prompt
@@ -930,21 +989,23 @@ def _build_parser() -> argparse.ArgumentParser:
 
     p_cam = p_prompt_sub.add_parser("camera", help="Camera prompt text or API assembly.")
     p_cam.add_argument("--preset", metavar="NAME", help="wrbench preset name (yaw_LR, static, …).")
-    p_cam.add_argument("--pronoun", default="they")
-    p_cam.add_argument("--offscreen-area", default="empty floor space", dest="offscreen_area")
+    p_cam.add_argument("--pronoun")
+    p_cam.add_argument("--offscreen-area", dest="offscreen_area")
     p_cam.add_argument("--assemble", action="store_true", help="Assemble ti2v_prompt from parts.")
-    p_cam.add_argument("--scene-start", default="", dest="scene_start")
-    p_cam.add_argument("--event", default="")
-    p_cam.add_argument("--gap", default="yaw_LR")
+    p_cam.add_argument("--scene-start", dest="scene_start")
+    p_cam.add_argument("--event")
+    p_cam.add_argument("--gap")
     p_cam.add_argument("--model", metavar="API_MODEL", help="API model for prompt_to_send assembly.")
     p_cam.add_argument("--source-prompt", dest="source_prompt", metavar="TEXT")
-    p_cam.add_argument("--camera-motion", default="yaw_LR", dest="camera_motion")
+    p_cam.add_argument("--camera-motion", dest="camera_motion")
 
     p_scene = p_prompt_sub.add_parser("scene", help="Generate t2i_scene via LLM (requires wrbench[prompts]).")
     p_scene.add_argument("--family-json", required=True, dest="family_json", metavar="PATH")
-    p_scene.add_argument("--model", default=None)
-    p_scene.add_argument("--provider", default=None)
-    p_scene.add_argument("--temperature", type=float, default=0.2)
+    p_scene.add_argument("--model", required=True)
+    p_scene.add_argument("--provider", required=True)
+    p_scene.add_argument("--base-url", required=True, dest="base_url")
+    p_scene.add_argument("--api-key", required=True, dest="api_key")
+    p_scene.add_argument("--temperature", type=float, required=True)
 
     p_task = p_prompt_sub.add_parser("task", help="Generate ti2v variant prompts.")
     p_task.add_argument("--deterministic", action="store_true", help="Deterministic Natural-25 style path.")
@@ -952,13 +1013,13 @@ def _build_parser() -> argparse.ArgumentParser:
         "--candidates-json",
         dest="candidates_json",
         metavar="PATH",
-        help="Optional candidates JSON; default builds from bundled data/natural25/scene_events_25x4.csv.",
+        help="Optional candidates JSON; omit to build from bundled data/natural25/scene_events_25x4.csv.",
     )
     p_task.add_argument(
         "--families-jsonl",
         dest="families_jsonl",
         metavar="PATH",
-        help="Optional families JSONL; default uses bundled data/natural25/families.jsonl.",
+        help="Optional families JSONL; omit to use bundled data/natural25/families.jsonl.",
     )
     p_task.add_argument("--output", metavar="PATH")
 
@@ -968,9 +1029,15 @@ def _build_parser() -> argparse.ArgumentParser:
     p_ff.add_argument("--families-jsonl", dest="families_jsonl", metavar="PATH")
     p_ff.add_argument("--family-id", dest="family_id", metavar="ID")
     p_ff.add_argument("--prompt", metavar="TEXT", help="T2I prompt (with --family-id).")
-    p_ff.add_argument("--provider", default="mock", help="T2I provider: dashscope, mock (default: mock).")
-    p_ff.add_argument("--model", default=None, help="T2I model name.")
-    p_ff.add_argument("--force", action="store_true", help="Regenerate even if PNG exists.")
+    p_ff.add_argument("--provider", required=True, help="T2I provider: dashscope, mock.")
+    p_ff.add_argument("--model", required=True, help="T2I model name.")
+    p_ff.add_argument("--api-key", dest="api_key", help="T2I API key.")
+    p_ff.add_argument("--endpoint", required=True, help="T2I API endpoint.")
+    p_ff.add_argument("--size", required=True, help="T2I output size, provider-specific.")
+    p_ff.add_argument("--n", required=True, help="T2I output count, provider-specific.")
+    ff_existing = p_ff.add_mutually_exclusive_group(required=True)
+    ff_existing.add_argument("--skip-existing", action="store_true", help="Skip existing PNGs and record them in the manifest.")
+    ff_existing.add_argument("--overwrite-existing", action="store_true", help="Regenerate existing PNGs.")
 
     # doctor
     p_doc = sub.add_parser(
@@ -994,8 +1061,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p_eval.add_argument(
         "--runtime-config",
         dest="runtime_config",
-        default=None,
-        help="Path to wrbench.runtime.json (default: auto-detect).",
+        help="Explicit path to wrbench.runtime.json for eval scorer runtime paths.",
     )
 
     p_eval_contract = eval_sub.add_parser("contract", help="Print the D1-D6 metric contract.")
@@ -1006,13 +1072,22 @@ def _build_parser() -> argparse.ArgumentParser:
     p_eval_d1.add_argument("--output-jsonl", required=True)
     p_eval_d1.add_argument("--summary-csv", required=True)
     p_eval_d1.add_argument("--pose-cache-root", required=True)
-    p_eval_d1.add_argument("--pose-backend", default="vggt_omega")
-    p_eval_d1.add_argument("--poses-file", default="poses.npy")
-    p_eval_d1.add_argument("--default-frames", type=int, default=121)
+    p_eval_d1.add_argument("--pose-backend", required=True)
+    p_eval_d1.add_argument("--poses-file", required=True)
+    p_eval_d1.add_argument("--default-frames", type=int, required=True)
+    p_eval_d1.add_argument("--predicted-pose-type", required=True)
+    p_eval_d1.add_argument("--predicted-camera-convention", required=True)
+    p_eval_d1.add_argument("--target-camera-convention", required=True)
+    p_eval_d1.add_argument("--rot-scale-deg", type=float, required=True)
+    p_eval_d1.add_argument("--trans-scale", type=float, required=True)
+    p_eval_d1.add_argument("--yaw-weak-threshold-deg", type=float, required=True)
+    p_eval_d1.add_argument("--pan-weak-threshold", type=float, required=True)
+    p_eval_d1.add_argument("--static-rot-threshold-deg", type=float, required=True)
+    p_eval_d1.add_argument("--static-trans-threshold", type=float, required=True)
     p_eval_d1.add_argument(
         "--sidecar-profile-gate",
         choices=("main", "certified_opencv"),
-        default="main",
+        required=True,
         help=(
             "Target sidecar validation gate. 'main' is the canonical main-table profile; "
             "'certified_opencv' accepts certified OpenCV C2W sidecars after external QC."
@@ -1026,22 +1101,22 @@ def _build_parser() -> argparse.ArgumentParser:
     p_eval_camalign.add_argument("--input-jsonl", required=True)
     p_eval_camalign.add_argument("--output-jsonl", required=True)
     p_eval_camalign.add_argument("--pose-cache-root", required=True)
-    p_eval_camalign.add_argument("--poses-file", default="poses.npy")
+    p_eval_camalign.add_argument("--poses-file", required=True)
 
     p_eval_vggt = eval_sub.add_parser("d1-vggt", help="Export VGGT-Omega poses for D1 scoring.")
     p_eval_vggt.add_argument("--input-jsonl", required=True)
     p_eval_vggt.add_argument("--output-root", required=True)
-    p_eval_vggt.add_argument("--cache-root", default=None)
+    p_eval_vggt.add_argument("--cache-root", required=True)
     p_eval_vggt.add_argument(
         "--execution-mode",
         choices=("subprocess", "inprocess"),
-        default="subprocess",
+        required=True,
     )
 
     p_eval_d2 = eval_sub.add_parser("d2", help="Extract DINOv2 D2 visual-integrity features.")
     p_eval_d2.add_argument("--videos-manifest", required=True)
     p_eval_d2.add_argument("--out-jsonl", required=True)
-    p_eval_d2.add_argument("--model-dir", default=None)
+    p_eval_d2.add_argument("--model-dir")
 
     p_eval_run = eval_sub.add_parser(
         "run",
@@ -1051,13 +1126,13 @@ def _build_parser() -> argparse.ArgumentParser:
     p_eval_run.add_argument("--out-dir", required=True, help="Output directory for all eval artifacts.")
     p_eval_run.add_argument(
         "--scorer-profile",
-        default="wrbench_default",
-        choices=("wrbench_default", "current_benchmark_p25_p22_e14", "ablation_manifest_metadata", "legacy_p9_all_manifest_metadata", "custom"),
+        required=True,
+        choices=("wrbench_default", "ablation_manifest_metadata", "custom"),
     )
     p_eval_run.add_argument(
         "--sidecar-profile-gate",
         choices=("main", "certified_opencv"),
-        default="main",
+        required=True,
         help=(
             "Target sidecar validation gate. 'main' is the canonical main-table profile; "
             "'certified_opencv' accepts certified OpenCV C2W sidecars after external QC."
@@ -1069,7 +1144,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p_eval_d3d6.add_argument("--out-dir", required=True)
     p_eval_d3d6.add_argument(
         "--stage",
-        default="all",
+        required=True,
         choices=(
             "preflight",
             "qwen35",
@@ -1086,15 +1161,15 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     p_eval_d3d6.add_argument(
         "--scorer-profile",
-        default="wrbench_default",
-        choices=("wrbench_default", "current_benchmark_p25_p22_e14", "ablation_manifest_metadata", "legacy_p9_all_manifest_metadata", "custom"),
+        required=True,
+        choices=("wrbench_default", "ablation_manifest_metadata", "custom"),
     )
 
     p_eval_table = eval_sub.add_parser("table", help="Build D1-D6 main benchmark table.")
     p_eval_table.add_argument("--runtime-scores", required=True)
-    p_eval_table.add_argument("--d1-scores", default=None)
-    p_eval_table.add_argument("--d1-camalign-scores", default=None)
-    p_eval_table.add_argument("--d2-scores", default=None)
+    p_eval_table.add_argument("--d1-scores")
+    p_eval_table.add_argument("--d1-camalign-scores")
+    p_eval_table.add_argument("--d2-scores")
     p_eval_table.add_argument("--out-csv", required=True)
     p_eval_table.add_argument("--out-md", required=True)
     p_eval_table.add_argument("--out-summary", required=True)

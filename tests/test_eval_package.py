@@ -46,7 +46,15 @@ def test_d1_pose_score_identity_trajectory() -> None:
 
     poses = np.repeat(np.eye(4, dtype=np.float32)[None, ...], 10, axis=0)
     target = poses.copy()
-    result = score_trajectory_pose(target, poses)
+    result = score_trajectory_pose(
+        target,
+        poses,
+        rot_scale_deg=45.0,
+        trans_scale=1.0,
+        predicted_pose_type="c2w",
+        predicted_camera_convention="opencv",
+        target_camera_convention="opencv",
+    )
     assert result["pose_status"] == "ok"
     assert result["pose_reward"] == pytest.approx(1.0)
 
@@ -74,7 +82,6 @@ def test_eval_runtime_reads_nested_scorers_block(tmp_path: Path) -> None:
         json.dumps(
             {
                 "schema_version": 1,
-                "defaults": {"gpu_id": 1},
                 "eval": {
                     "scorers": {
                         "gpu_id": 2,
@@ -91,6 +98,59 @@ def test_eval_runtime_reads_nested_scorers_block(tmp_path: Path) -> None:
     assert cfg is not None
     assert cfg.scorers.gpu_id == 2
     assert cfg.scorers.vggt_python_bin == "/tmp/vggt/bin/python"
+
+
+def test_eval_runtime_requires_scorer_gpu_id(tmp_path: Path) -> None:
+    from wrbench.eval.runtime import load_eval_runtime
+    from wrbench.runtime import RuntimeConfigError
+
+    runtime_path = tmp_path / "wrbench.runtime.json"
+    runtime_path.write_text(
+        json.dumps({"schema_version": 1, "eval": {"scorers": {"vggt_python_bin": "/tmp/python"}}}),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(RuntimeConfigError, match="eval.scorers.*gpu_id"):
+        load_eval_runtime(runtime_path)
+
+
+def test_d2_extract_requires_explicit_runtime_fields(tmp_path: Path) -> None:
+    from wrbench.eval.runtime import EvalRuntimeConfig, EvalScorerRuntime, d2_extract
+
+    py = tmp_path / "python"
+    py.write_text("#!/bin/sh\n", encoding="utf-8")
+    py.chmod(0o755)
+    runtime = EvalRuntimeConfig(
+        schema_version=1,
+        scorers=EvalScorerRuntime(dinov2_python_bin=str(py), gpu_id=0),
+    )
+
+    with pytest.raises(FileNotFoundError, match="dinov2_model_path"):
+        d2_extract(
+            eval_runtime=runtime,
+            videos_manifest=tmp_path / "videos.jsonl",
+            out_jsonl=tmp_path / "d2.jsonl",
+        )
+
+
+def test_d3d6_env_requires_explicit_runtime_fields(tmp_path: Path) -> None:
+    from wrbench.eval.runtime import EvalRuntimeConfig, EvalScorerRuntime, d3d6_env
+
+    scorer_py = tmp_path / "python"
+    scorer_py.write_text("#!/bin/sh\n", encoding="utf-8")
+    scorer_py.chmod(0o755)
+    runtime = EvalRuntimeConfig(
+        schema_version=1,
+        scorers=EvalScorerRuntime(qwen_scorer_python=str(scorer_py), gpu_id=0),
+    )
+
+    with pytest.raises(FileNotFoundError, match="qwen35_model"):
+        d3d6_env(
+            eval_runtime=runtime,
+            manifest=tmp_path / "manifest.json",
+            out_dir=tmp_path / "out",
+            scorer_profile="wrbench_default",
+        )
 
 
 def test_eval_d1_does_not_require_eval_scorers(tmp_path: Path) -> None:
@@ -150,6 +210,32 @@ def test_eval_d1_does_not_require_eval_scorers(tmp_path: Path) -> None:
             str(tmp_path / "sum.csv"),
             "--pose-cache-root",
             str(tmp_path / "cache"),
+            "--pose-backend",
+            "vggt_omega",
+            "--poses-file",
+            "poses.npy",
+            "--default-frames",
+            "10",
+            "--sidecar-profile-gate",
+            "main",
+            "--predicted-pose-type",
+            "c2w",
+            "--predicted-camera-convention",
+            "opencv",
+            "--target-camera-convention",
+            "opencv",
+            "--rot-scale-deg",
+            "45.0",
+            "--trans-scale",
+            "1.0",
+            "--yaw-weak-threshold-deg",
+            "2.0",
+            "--pan-weak-threshold",
+            "0.0001",
+            "--static-rot-threshold-deg",
+            "2.0",
+            "--static-trans-threshold",
+            "0.05",
         ]
     )
     assert rc == 0
@@ -175,12 +261,10 @@ def test_contract_version_is_paper_facing() -> None:
     assert payload["policy"]["paper_reference"].startswith("WRBench:")
 
 
-def test_normalize_scorer_profile_aliases() -> None:
-    from wrbench.eval.runtime import normalize_scorer_profile
+def test_eval_runtime_exposes_no_scorer_profile_alias_layer() -> None:
+    import wrbench.eval.runtime as runtime
 
-    assert normalize_scorer_profile("current_benchmark_p25_p22_e14") == "wrbench_default"
-    assert normalize_scorer_profile("legacy_p9_all_manifest_metadata") == "ablation_manifest_metadata"
-    assert normalize_scorer_profile("wrbench_default") == "wrbench_default"
+    assert not hasattr(runtime, "normalize_scorer_profile")
 
 
 def test_main_table_includes_viewpoint_and_reobservation() -> None:
@@ -253,6 +337,71 @@ def test_natural25_dataset_paths_exist() -> None:
     manifest = json.loads(natural25_first_frames_manifest_path().read_text(encoding="utf-8"))
     assert {row["family_id"] for row in manifest} == set(families)
     assert all(natural25_first_frame_path(fid).is_file() for fid in families)
+
+
+def test_published_23model_model_input_column() -> None:
+    """The frozen 23-model table must expose a model_input column with values in
+    {TI2V, TV2V}, consistent between CSV and JSON, and row-aligned.
+
+    Prompt-only T2V rows live in the separate T2V addendum, not the 23-model
+    main table.
+    """
+    import csv
+
+    from wrbench.datasets import published_results_csv, published_results_json
+
+    allowed = {"TI2V", "TV2V"}
+
+    with published_results_csv().open(encoding="utf-8") as fh:
+        csv_rows = list(csv.DictReader(fh))
+    assert csv_rows, "CSV has no rows"
+    assert "model_input" in csv_rows[0], "CSV missing model_input column"
+    for row in csv_rows:
+        assert row["model_input"] in allowed, (row["model_id"], row["model_input"])
+
+    payload = json.loads(published_results_json().read_text(encoding="utf-8"))
+    json_rows = payload["rows"]
+    assert len(json_rows) == len(csv_rows) == 23
+    for row in json_rows:
+        assert row.get("model_input") in allowed, (row["model_id"], row.get("model_input"))
+
+    csv_map = {row["model_id"]: row["model_input"] for row in csv_rows}
+    json_map = {row["model_id"]: row["model_input"] for row in json_rows}
+    assert csv_map == json_map, "CSV and JSON disagree on model_input"
+
+
+def test_published_23model_viewpoint_condition_type_column() -> None:
+    """The frozen 23-model table must expose viewpoint_condition_type consistent
+    with build_wrbench_vnext_main_table and aligned between CSV and JSON."""
+    import csv
+
+    from wrbench.datasets import published_results_csv, published_results_json
+    from wrbench.eval.aggregate.build_wrbench_vnext_main_table import _viewpoint_condition
+
+    allowed = {"source-video", "geometry-cache", "model-inferred", "prompt-only"}
+
+    with published_results_csv().open(encoding="utf-8") as fh:
+        csv_rows = list(csv.DictReader(fh))
+    assert csv_rows, "CSV has no rows"
+    assert "viewpoint_condition_type" in csv_rows[0], "CSV missing viewpoint_condition_type"
+    for row in csv_rows:
+        assert row["viewpoint_condition_type"] in allowed, (
+            row["model_id"],
+            row["viewpoint_condition_type"],
+        )
+        assert row["viewpoint_condition_type"] == _viewpoint_condition(row["model_id"])
+
+    payload = json.loads(published_results_json().read_text(encoding="utf-8"))
+    json_rows = payload["rows"]
+    for row in json_rows:
+        assert row.get("viewpoint_condition_type") in allowed, (
+            row["model_id"],
+            row.get("viewpoint_condition_type"),
+        )
+
+    csv_map = {row["model_id"]: row["viewpoint_condition_type"] for row in csv_rows}
+    json_map = {row["model_id"]: row["viewpoint_condition_type"] for row in json_rows}
+    assert csv_map == json_map, "CSV and JSON disagree on viewpoint_condition_type"
 
 
 def test_eval_run_cli_help() -> None:

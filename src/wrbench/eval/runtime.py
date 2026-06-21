@@ -10,13 +10,20 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from wrbench.runtime import RuntimeConfig, load_runtime_config
+from wrbench.runtime import (
+    RuntimeConfigError,
+    _load_runtime_payload,
+    _optional_mapping,
+    _require_int,
+    _resolve_runtime_path,
+)
 
 
 @dataclass(frozen=True)
 class EvalScorerRuntime:
     """Paths to external model scorers (host-only, not pip deps)."""
 
+    gpu_id: int
     vggt_python_bin: str | None = None
     vggt_repo: str | None = None
     vggt_checkpoint: str | None = None
@@ -25,7 +32,6 @@ class EvalScorerRuntime:
     qwen_scorer_python: str | None = None
     qwen35_model: str | None = None
     qwen3vl_model: str | None = None
-    gpu_id: int = 0
     extra_paths: dict[str, str] = field(default_factory=dict)
     env: dict[str, str] = field(default_factory=dict)
 
@@ -34,17 +40,14 @@ class EvalScorerRuntime:
 class EvalRuntimeConfig:
     schema_version: int
     scorers: EvalScorerRuntime
-    defaults: dict[str, Any] = field(default_factory=dict)
 
 
-def _parse_eval_node(payload: dict[str, Any], defaults: dict[str, Any]) -> EvalScorerRuntime:
+def _parse_eval_node(payload: dict[str, Any], *, context: str) -> EvalScorerRuntime:
     eval_block = payload.get("eval")
     if isinstance(eval_block, dict) and isinstance(eval_block.get("scorers"), dict):
         node = eval_block["scorers"]
-    elif isinstance(payload.get("scorers"), dict):
-        node = payload["scorers"]
     else:
-        node = {}
+        raise RuntimeConfigError(f"{context}: required object field 'eval.scorers' is missing or invalid")
     return EvalScorerRuntime(
         vggt_python_bin=node.get("vggt_python_bin"),
         vggt_repo=node.get("vggt_repo"),
@@ -54,32 +57,47 @@ def _parse_eval_node(payload: dict[str, Any], defaults: dict[str, Any]) -> EvalS
         qwen_scorer_python=node.get("qwen_scorer_python"),
         qwen35_model=node.get("qwen35_model"),
         qwen3vl_model=node.get("qwen3vl_model"),
-        gpu_id=int(node.get("gpu_id", defaults.get("gpu_id", 0))),
-        extra_paths={str(k): str(v) for k, v in (node.get("extra_paths") or {}).items()},
-        env={str(k): str(v) for k, v in (node.get("env") or {}).items()},
+        gpu_id=_require_int(node, "gpu_id", context=f"{context}: eval.scorers"),
+        extra_paths={str(k): str(v) for k, v in _optional_mapping(node, "extra_paths", context=f"{context}: eval.scorers").items()},
+        env={str(k): str(v) for k, v in _optional_mapping(node, "env", context=f"{context}: eval.scorers").items()},
     )
 
 
 def load_eval_runtime(path: Path | None = None) -> EvalRuntimeConfig | None:
-    runtime = load_runtime_config(path)
-    if runtime is None:
-        return None
-    resolved = path
-    if resolved is None:
-        from wrbench.runtime import _resolve_runtime_path
-
-        resolved = _resolve_runtime_path(None)
+    resolved = _resolve_runtime_path(path)
     if resolved is None:
         return None
-    payload = json.loads(resolved.read_text(encoding="utf-8"))
-    defaults = dict(payload.get("defaults") or {})
+    payload = _load_runtime_payload(resolved)
     if "eval" not in payload and "scorers" not in payload:
         return None
     return EvalRuntimeConfig(
-        schema_version=int(payload.get("schema_version", runtime.schema_version)),
-        scorers=_parse_eval_node(payload, defaults),
-        defaults=defaults,
+        schema_version=int(payload["schema_version"]),
+        scorers=_parse_eval_node(payload, context=str(resolved)),
     )
+
+
+def _require_extra(scorers: EvalScorerRuntime, field: str) -> str:
+    value = scorers.extra_paths.get(field)
+    if value is None or not str(value).strip():
+        raise RuntimeConfigError(f"eval.scorers.extra_paths.{field} is required")
+    return str(value).strip()
+
+
+def _require_extra_int(scorers: EvalScorerRuntime, field: str) -> int:
+    value = _require_extra(scorers, field)
+    try:
+        parsed = int(value)
+    except ValueError as exc:
+        raise RuntimeConfigError(f"eval.scorers.extra_paths.{field} must be an integer") from exc
+    return parsed
+
+
+def _require_extra_float(scorers: EvalScorerRuntime, field: str) -> float:
+    value = _require_extra(scorers, field)
+    try:
+        return float(value)
+    except ValueError as exc:
+        raise RuntimeConfigError(f"eval.scorers.extra_paths.{field} must be a number") from exc
 
 
 def require_eval_runtime(path: Path | None = None) -> EvalRuntimeConfig:
@@ -133,10 +151,19 @@ def d1_score(
     output_jsonl: Path,
     summary_csv: Path,
     pose_cache_root: Path,
-    pose_backend: str = "vggt_omega",
-    poses_file: str = "poses.npy",
-    default_frames: int = 121,
-    sidecar_profile_gate: str = "main",
+    pose_backend: str,
+    poses_file: str,
+    default_frames: int,
+    sidecar_profile_gate: str,
+    predicted_pose_type: str,
+    predicted_camera_convention: str,
+    target_camera_convention: str,
+    rot_scale_deg: float,
+    trans_scale: float,
+    yaw_weak_threshold_deg: float,
+    pan_weak_threshold: float,
+    static_rot_threshold_deg: float,
+    static_trans_threshold: float,
 ) -> int:
     from wrbench.eval.d1.d1_camera import main as d1_main
 
@@ -157,6 +184,24 @@ def d1_score(
         str(default_frames),
         "--sidecar-profile-gate",
         sidecar_profile_gate,
+        "--predicted-pose-type",
+        predicted_pose_type,
+        "--predicted-camera-convention",
+        predicted_camera_convention,
+        "--target-camera-convention",
+        target_camera_convention,
+        "--rot-scale-deg",
+        str(rot_scale_deg),
+        "--trans-scale",
+        str(trans_scale),
+        "--yaw-weak-threshold-deg",
+        str(yaw_weak_threshold_deg),
+        "--pan-weak-threshold",
+        str(pan_weak_threshold),
+        "--static-rot-threshold-deg",
+        str(static_rot_threshold_deg),
+        "--static-trans-threshold",
+        str(static_trans_threshold),
     ]
     return d1_main(argv)
 
@@ -166,7 +211,7 @@ def d1_camalign_score(
     input_jsonl: Path,
     output_jsonl: Path,
     pose_cache_root: Path,
-    poses_file: str = "poses.npy",
+    poses_file: str,
 ) -> int:
     from wrbench.eval.d1.d1_camalign import main as camalign_main
 
@@ -189,8 +234,8 @@ def d1_vggt_batch(
     eval_runtime: EvalRuntimeConfig,
     input_jsonl: Path,
     output_root: Path,
-    cache_root: Path | None = None,
-    execution_mode: str = "subprocess",
+    cache_root: Path,
+    execution_mode: str,
 ) -> int:
     scorers = eval_runtime.scorers
     for field_name, value in (
@@ -213,15 +258,25 @@ def d1_vggt_batch(
         str(scorers.vggt_checkpoint),
         "--gpu-id",
         str(scorers.gpu_id),
+        "--cache-root",
+        str(cache_root),
         "--python",
-        str(scorers.vggt_python_bin or sys.executable),
+        str(scorers.vggt_python_bin),
         "--execution-mode",
         execution_mode,
         "--poses-file",
-        "poses.npy",
+        _require_extra(scorers, "d1_poses_file"),
+        "--image-resolution",
+        str(_require_extra_int(scorers, "d1_vggt_image_resolution")),
+        "--preprocess-mode",
+        _require_extra(scorers, "d1_vggt_preprocess_mode"),
+        "--cwd",
+        _require_extra(scorers, "d1_vggt_cwd"),
+        "--shard-index",
+        _require_extra(scorers, "d1_vggt_shard_index"),
+        "--num-shards",
+        _require_extra(scorers, "d1_vggt_num_shards"),
     ]
-    if cache_root is not None:
-        argv.extend(["--cache-root", str(cache_root)])
     return batch_main(argv)
 
 
@@ -233,16 +288,31 @@ def d2_extract(
     model_dir: Path | None = None,
 ) -> int:
     scorers = eval_runtime.scorers
-    python_bin = scorers.dinov2_python_bin or sys.executable
-    model = model_dir or (Path(scorers.dinov2_model_path) if scorers.dinov2_model_path else None)
+    if not scorers.dinov2_python_bin or not Path(str(scorers.dinov2_python_bin)).exists():
+        raise FileNotFoundError(f"eval.scorers.dinov2_python_bin missing or not found: {scorers.dinov2_python_bin!r}")
+    if model_dir is None and (not scorers.dinov2_model_path or not Path(str(scorers.dinov2_model_path)).exists()):
+        raise FileNotFoundError(f"eval.scorers.dinov2_model_path missing or not found: {scorers.dinov2_model_path!r}")
+    python_bin = scorers.dinov2_python_bin
+    model = model_dir if model_dir is not None else Path(str(scorers.dinov2_model_path))
     argv = [
         "--videos",
         str(videos_manifest),
         "--out-jsonl",
         str(out_jsonl),
+        "--device",
+        _require_extra(scorers, "d2_device"),
+        "--sample-policy",
+        _require_extra(scorers, "d2_sample_policy"),
+        "--sample-fps",
+        str(_require_extra_float(scorers, "d2_sample_fps")),
+        "--min-frames",
+        str(_require_extra_int(scorers, "d2_min_frames")),
+        "--max-frames",
+        str(_require_extra_int(scorers, "d2_max_frames")),
+        "--batch-size",
+        str(_require_extra_int(scorers, "d2_batch_size")),
     ]
-    if model is not None:
-        argv.extend(["--model-dir", str(model)])
+    argv.extend(["--model-dir", str(model)])
     return run_scorer_python(
         python_bin,
         "wrbench.eval.d2.extract_d2_dinov2_local_global_candidate",
@@ -265,20 +335,60 @@ def d3d6_env(
     eval_runtime: EvalRuntimeConfig,
     manifest: Path,
     out_dir: Path,
-    scorer_profile: str = "wrbench_default",
+    scorer_profile: str,
 ) -> dict[str, str]:
-    profile = normalize_scorer_profile(scorer_profile)
+    profile = str(scorer_profile).strip()
+    if not profile:
+        raise ValueError("scorer_profile is required")
     scorers = eval_runtime.scorers
+    for field_name, value in (
+        ("qwen_scorer_python", scorers.qwen_scorer_python),
+        ("qwen35_model", scorers.qwen35_model),
+        ("qwen3vl_model", scorers.qwen3vl_model),
+    ):
+        if not value or not Path(str(value)).exists():
+            raise FileNotFoundError(f"eval.scorers.{field_name} missing or not found: {value!r}")
+    required_env = (
+        "FORCE_QWENVL_VIDEO_READER",
+        "WORLD_STATE_VIDEO_BACKEND",
+        "RUN_TAG",
+        "PROMPT_MODE",
+        "TASK_CONTEXT_MODE",
+        "NUM_SHARDS",
+        "SHARD_IDS",
+        "CUDA_DEVICES_CSV",
+        "FPS",
+        "PROGRESS_EVERY",
+        "SKIP_EXISTING",
+        "QWEN35_VLM_NAME",
+        "QWEN35_LOADER_FAMILY",
+        "QWEN35_DTYPE",
+        "QWEN35_ATTN_IMPLEMENTATION",
+        "QWEN35_NUM_SAMPLES",
+        "QWEN35_MAX_VIDEOS",
+        "QWEN35_EVIDENCE_CONTEXT_MODE",
+        "QWEN3VL_DTYPE",
+        "QWEN3VL_ATTN_IMPLEMENTATION",
+        "QWEN3VL_MAX_NEW_TOKENS",
+        "QWEN3VL_MAX_VIDEOS",
+        "QWEN3VL_BINARY_PROMPT_SCHEMA",
+        "QWEN3VL_RESCUE_PROMPT_SCHEMA",
+    )
+    missing_env = [name for name in required_env if not str(scorers.env.get(name, "")).strip()]
+    if missing_env:
+        raise RuntimeConfigError(
+            "eval.scorers.env missing required D3-D6 field(s): " + ", ".join(missing_env)
+        )
     repo_root = wrbench_repo_root()
     shell = repo_root / "scripts" / "eval" / "score_runtime_v2_d3d6.sh"
     env = {
         "MANIFEST": str(manifest.resolve()),
         "OUT_DIR": str(out_dir.resolve()),
         "SCORER_PROFILE": profile,
-        "PY_SCORER": scorers.qwen_scorer_python or sys.executable,
-        "PY_HELPER": scorers.qwen_scorer_python or sys.executable,
-        "QWEN35_MODEL": scorers.qwen35_model or "",
-        "QWEN3VL_MODEL": scorers.qwen3vl_model or "",
+        "PY_SCORER": str(scorers.qwen_scorer_python),
+        "PY_HELPER": str(scorers.qwen_scorer_python),
+        "QWEN35_MODEL": str(scorers.qwen35_model),
+        "QWEN3VL_MODEL": str(scorers.qwen3vl_model),
         "CUDA_VISIBLE_DEVICES": str(scorers.gpu_id),
         "PYTHONPATH": str(repo_root),
         **scorers.env,
@@ -294,8 +404,8 @@ def d3d6_score(
     eval_runtime: EvalRuntimeConfig,
     manifest: Path,
     out_dir: Path,
-    stage: str = "all",
-    scorer_profile: str = "wrbench_default",
+    stage: str,
+    scorer_profile: str,
 ) -> int:
     env = d3d6_env(
         eval_runtime=eval_runtime,
@@ -307,21 +417,13 @@ def d3d6_score(
     return run_shell_script(script, stage, env=env)
 
 
-def normalize_scorer_profile(profile: str) -> str:
-    aliases = {
-        "current_benchmark_p25_p22_e14": "wrbench_default",
-        "legacy_p9_all_manifest_metadata": "ablation_manifest_metadata",
-    }
-    return aliases.get(profile, profile)
-
-
 def eval_run(
     *,
     eval_runtime: EvalRuntimeConfig,
     manifest: Path,
     out_dir: Path,
-    scorer_profile: str = "wrbench_default",
-    sidecar_profile_gate: str = "main",
+    scorer_profile: str,
+    sidecar_profile_gate: str,
 ) -> int:
     """Run the full WRBench eval pipeline: D1 pose -> D1 score -> D2 -> D3-D6 -> table."""
     out_dir = out_dir.resolve()
@@ -351,6 +453,7 @@ def eval_run(
         input_jsonl=d1_input,
         output_root=pose_root,
         cache_root=cache_root,
+        execution_mode=_require_extra(eval_runtime.scorers, "d1_vggt_execution_mode"),
     )
     steps.append(("d1-vggt", rc))
     if rc != 0:
@@ -361,7 +464,19 @@ def eval_run(
         output_jsonl=d1_scored,
         summary_csv=d1_summary,
         pose_cache_root=cache_root,
+        pose_backend=_require_extra(eval_runtime.scorers, "d1_pose_backend"),
+        poses_file=_require_extra(eval_runtime.scorers, "d1_poses_file"),
+        default_frames=_require_extra_int(eval_runtime.scorers, "d1_default_frames"),
         sidecar_profile_gate=sidecar_profile_gate,
+        predicted_pose_type=_require_extra(eval_runtime.scorers, "d1_predicted_pose_type"),
+        predicted_camera_convention=_require_extra(eval_runtime.scorers, "d1_predicted_camera_convention"),
+        target_camera_convention=_require_extra(eval_runtime.scorers, "d1_target_camera_convention"),
+        rot_scale_deg=_require_extra_float(eval_runtime.scorers, "d1_rot_scale_deg"),
+        trans_scale=_require_extra_float(eval_runtime.scorers, "d1_trans_scale"),
+        yaw_weak_threshold_deg=_require_extra_float(eval_runtime.scorers, "d1_yaw_weak_threshold_deg"),
+        pan_weak_threshold=_require_extra_float(eval_runtime.scorers, "d1_pan_weak_threshold"),
+        static_rot_threshold_deg=_require_extra_float(eval_runtime.scorers, "d1_static_rot_threshold_deg"),
+        static_trans_threshold=_require_extra_float(eval_runtime.scorers, "d1_static_trans_threshold"),
     )
     steps.append(("d1", rc))
     if rc != 0:
@@ -371,6 +486,7 @@ def eval_run(
         input_jsonl=d1_input,
         output_jsonl=d1_camalign_scored,
         pose_cache_root=cache_root,
+        poses_file=_require_extra(eval_runtime.scorers, "d1_poses_file"),
     )
     steps.append(("d1-camalign", rc))
     if rc != 0:

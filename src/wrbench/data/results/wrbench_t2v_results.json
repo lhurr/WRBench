@@ -1,0 +1,138 @@
+{
+  "schema_version": 2,
+  "scope": "t2v_addendum",
+  "table_policy": "separate_from_frozen_23model_main_table",
+  "prompt_of_record": "src/wrbench/data/natural25/prompt_profiles/t2v_layout_anchor.json",
+  "source_variants": "src/wrbench/data/natural25/variants.jsonl",
+  "prompt_materialization_inputs": [
+    "src/wrbench/data/natural25/t2v_layout_anchors.jsonl",
+    "src/wrbench/data/natural25/t2v_event_tails.jsonl"
+  ],
+  "legacy_main_table_prompt": "src/wrbench/data/natural25/variants.legacy_pronoun_20260620.jsonl",
+  "benchmark_definition": {
+    "dataset": "Natural-25",
+    "leaderboard_track": "t2v_rotation_stress",
+    "variant_count": 100,
+    "camera_scope_id": "natural25_t2v_rotation_stress_30_60",
+    "camera_scope_path": "src/wrbench/data/natural25/camera_scopes/t2v_rotation_stress_30_60.json",
+    "camera_controls": [
+      "static",
+      "yaw30_LR",
+      "yaw30_RL",
+      "yaw60_LR",
+      "yaw60_RL"
+    ],
+    "expected_videos": 500,
+    "prompt_profile_id": "t2v_layout_anchor",
+    "oov_policy": "no_oov_rotation_stress; D5/D6 are not scored for this T2V addendum"
+  },
+  "models": [
+    {
+      "model_id": "minwm-wan-action2v",
+      "display_name": "minWM Wan Action2V",
+      "status": "generation_complete_static_yaw_smoke_scored",
+      "model_input": "T2V",
+      "viewpoint_condition_type": "model-inferred",
+      "control_condition_type": "prompt-plus-trajectory",
+      "input_contract": {
+        "requires_first_frame_image": false,
+        "requires_source_video": false,
+        "uses_prompt": true,
+        "uses_native_camera_trajectory": true,
+        "official_input_kind": "prompt_plus_trajectory"
+      },
+      "model_profile": {
+        "base_model": "Wan2.1-T2V-1.3B",
+        "checkpoint_family": "Wan21/Action2V/dmd",
+        "frames": 77,
+        "fps": 16
+      },
+      "generation": {
+        "status": "complete",
+        "run_date": "2026-06-20",
+        "camera_scope_id": "natural25_t2v_rotation_stress_30_60",
+        "prompt_profile_id": "t2v_layout_anchor",
+        "videos_expected": 500,
+        "videos_generated": 500,
+        "failed_videos": 0
+      },
+      "camera_control": {
+        "native_control": "minWM motion-token trajectory",
+        "yaw_target_degrees": [
+          30.0,
+          60.0
+        ],
+        "yaw_runtime_deg_per_token": 6.0,
+        "static_token": "z",
+        "calibration_note": "WRBench maps Natural-25 camera presets to minWM native prompt-aligned trajectory strings; rendered effective motion remains model-dependent."
+      },
+      "static_yaw_smoke": {
+        "run_date": "2026-06-20",
+        "sample_count": 12,
+        "variant_filter": "T1",
+        "scenes": 4,
+        "camera_controls": [
+          "static",
+          "yaw_LR",
+          "yaw_RL"
+        ],
+        "semantic_scores_by_camera": [
+          {
+            "camera": "static",
+            "n": 4,
+            "D3_spatial_in": 0.624093,
+            "D4_state_in": 0.464736
+          },
+          {
+            "camera": "yaw_LR",
+            "n": 4,
+            "D3_spatial_in": 0.614077,
+            "D4_state_in": 0.398649
+          },
+          {
+            "camera": "yaw_RL",
+            "n": 4,
+            "D3_spatial_in": 0.537458,
+            "D4_state_in": 0.42436
+          }
+        ],
+        "semantic_scores_overall": {
+          "D3_spatial_in": 0.591876,
+          "D4_state_in": 0.429248
+        },
+        "camera_scores_by_camera": [
+          {
+            "camera": "static",
+            "n": 4,
+            "D1_CamAlign": 0.652424,
+            "status": "motion_detected"
+          },
+          {
+            "camera": "yaw_LR",
+            "n": 4,
+            "D1_CamAlign": 0.622666,
+            "status": "ok"
+          },
+          {
+            "camera": "yaw_RL",
+            "n": 4,
+            "D1_CamAlign": 0.727074,
+            "status": "ok"
+          }
+        ],
+        "camera_scores_overall": {
+          "D1_CamAlign": 0.667388
+        },
+        "D5_D6_policy": "not_applicable_for_current_no_oov_t2v_scope",
+        "D1_CamPrec_policy": "not_promoted_until_t2v_target_certification_policy_is_finalized"
+      },
+      "intake_gates": {
+        "generation_complete": "500/500 pass",
+        "scorer_subject_sensitivity": "D3/D4 visibly penalize missing-subject and weak-action cases in static/yaw smoke",
+        "camera_visible": "static/yaw CamAlign smoke complete",
+        "camera_amplitude_ok": "control signal records 30deg and 60deg go-return yaw targets; effective rendered amplitude is model-dependent"
+      },
+      "notes": "Released as a T2V addendum with a separate prompt profile and 30/60 degree yaw rotation-stress scope. It is not folded into the frozen 23-model paper table or ranked against TI2V/TV2V rows."
+    }
+  ]
+}

@@ -15,17 +15,16 @@ from wrbench.eval.aggregate.latest_d1_d6_metrics import write_metric_contract
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    out_dir = Path(__file__).resolve().parent
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--out-json",
         type=Path,
-        default=out_dir / "latest_d1_d6_metric_contract.json",
+        required=True,
     )
     parser.add_argument(
         "--out-md",
         type=Path,
-        default=out_dir / "latest_d1_d6_metric_contract.md",
+        required=True,
     )
     return parser.parse_args(argv)
 

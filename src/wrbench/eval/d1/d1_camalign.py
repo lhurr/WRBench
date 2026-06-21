@@ -88,7 +88,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         dest="pose_cache_root",
         required=True,
     )
-    parser.add_argument("--poses-file", "--poses_file", dest="poses_file", default="poses.npy")
+    parser.add_argument("--poses-file", "--poses_file", dest="poses_file", required=True)
     return parser.parse_args(argv)
 
 

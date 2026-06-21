@@ -1,13 +1,12 @@
 """Provider-agnostic LLM client for prompt generation.
 
 Supports OpenAI-compatible APIs and DashScope (Qwen). Requires optional
-``wrbench[prompts]`` extra (httpx) and an API key via environment or argument.
+``wrbench[prompts]`` extra (httpx) and explicit provider configuration.
 """
 
 from __future__ import annotations
 
 import json
-import os
 from typing import Any, Callable, Protocol
 
 
@@ -29,6 +28,12 @@ def _require_httpx():
         raise ImportError(
             "LLM prompt generation requires httpx. Install with: pip install 'wrbench[prompts]'"
         ) from exc
+
+
+def _require_config_value(value: str | None, *, label: str) -> str:
+    if value is not None and value.strip():
+        return value.strip()
+    raise RuntimeError(f"{label} required")
 
 
 def _parse_json_response(text: str) -> dict[str, Any]:
@@ -59,10 +64,11 @@ class OpenAICompatibleProvider:
         _require_httpx()
         import httpx
 
-        self.api_key = api_key or os.environ.get("OPENAI_API_KEY") or os.environ.get("WRBENCH_LLM_API_KEY")
-        if not self.api_key:
-            raise RuntimeError("LLM API key required: set OPENAI_API_KEY or WRBENCH_LLM_API_KEY")
-        self.base_url = (base_url or os.environ.get("WRBENCH_LLM_BASE_URL") or "https://api.openai.com/v1").rstrip("/")
+        self.api_key = _require_config_value(api_key, label="OpenAI-compatible LLM API key")
+        self.base_url = _require_config_value(
+            base_url,
+            label="OpenAI-compatible LLM base URL",
+        ).rstrip("/")
         self.timeout = timeout
         self._client = httpx.Client(timeout=timeout)
 
@@ -98,16 +104,20 @@ class OpenAICompatibleProvider:
 class DashScopeProvider:
     """Call DashScope compatible-mode chat completions (Qwen)."""
 
-    def __init__(self, *, api_key: str | None = None, timeout: float = 120.0) -> None:
+    def __init__(
+        self,
+        *,
+        api_key: str | None = None,
+        base_url: str | None = None,
+        timeout: float = 120.0,
+    ) -> None:
         _require_httpx()
         import httpx
 
-        self.api_key = api_key or os.environ.get("DASHSCOPE_API_KEY") or os.environ.get("WRBENCH_LLM_API_KEY")
-        if not self.api_key:
-            raise RuntimeError("DashScope API key required: set DASHSCOPE_API_KEY or WRBENCH_LLM_API_KEY")
-        self.base_url = (
-            os.environ.get("DASHSCOPE_BASE_URL")
-            or "https://dashscope.aliyuncs.com/compatible-mode/v1"
+        self.api_key = _require_config_value(api_key, label="DashScope API key")
+        self.base_url = _require_config_value(
+            base_url,
+            label="DashScope compatible-mode base URL",
         ).rstrip("/")
         self.timeout = timeout
         self._client = httpx.Client(timeout=timeout)
@@ -142,7 +152,7 @@ class DashScopeProvider:
 
 def get_llm_provider(name: str | None = None, **kwargs: Any) -> LLMProvider:
     """Return an LLM provider by name (``openai``, ``dashscope``)."""
-    provider = (name or os.environ.get("WRBENCH_LLM_PROVIDER") or "openai").strip().lower()
+    provider = _require_config_value(name, label="LLM provider").lower()
     if provider in {"openai", "openai_compatible", "compatible"}:
         return OpenAICompatibleProvider(**kwargs)
     if provider in {"dashscope", "qwen"}:
@@ -158,10 +168,11 @@ def call_llm_json(
     temperature: float = 0.2,
     provider: str | None = None,
     api_key: str | None = None,
+    base_url: str | None = None,
 ) -> dict[str, Any]:
     """Convenience wrapper around :func:`get_llm_provider`."""
-    llm = get_llm_provider(provider, api_key=api_key)
-    model_name = model or os.environ.get("WRBENCH_LLM_MODEL") or "gpt-4o-mini"
+    model_name = _require_config_value(model, label="LLM model")
+    llm = get_llm_provider(provider, api_key=api_key, base_url=base_url)
     return llm.call_json(
         system_prompt=system_prompt,
         user_message=user_message,

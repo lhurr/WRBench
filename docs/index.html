@@ -2440,6 +2440,13 @@
           re-observation subset. Avg. is the paper's mean of Cam Align., Integ., Vis. spatial/state, and Reobs.
           spatial/state, excluding re-observation support. Italic re-observation scores mark low re-observation support
           (fewer than 10 judgeable clips or support below 10%). Cam Prec. is not applicable to prompt-only API rows.</p>
+        <div class="callout reveal"><strong>T2V addendum:</strong> minWM Wan Action2V is now tracked as a separate
+          text-to-video camera-control entry, not folded into the frozen 23-model main table. The Natural-25 T2V run
+          generated <span class="stat-pill">500 / 500</span> clips with prompt + native trajectory control. A
+          static/yaw smoke pass confirms the visible-state scorer penalizes missing subjects and action failures
+          (D3 <span class="stat-pill">0.592</span>, D4 <span class="stat-pill">0.429</span> over 12 T1 clips), while
+          D5/D6 remain not applicable for the current no-OoV T2V scope. The public addendum is released with the
+          Hugging Face results artifacts.</div>
         <div class="callout insight reveal">No model wins every dimension. <strong>Lingbot-World Act</strong> pairs high
           visible spatial/state scores (<span class="stat-pill">0.874 / 0.719</span>) with the weakest requested-camera
           precision (<span class="stat-pill">0.468</span>) among controllable local models. Strong visible tracking still

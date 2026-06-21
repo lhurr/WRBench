@@ -1,6 +1,6 @@
 {
   "schema_version": "wrbench-paper-23model-aggregate-v1",
-  "generated_at": "2026-06-10T08:42:42+00:00",
+  "generated_at": "2026-06-20T07:39:49.505590+00:00",
   "source_files": [
     "data/results/wrbench_23model_results.csv",
     "wrbench eval aggregate (D1-D6 diagnostic profile)"
@@ -18,7 +18,7 @@
       "n": 7500
     },
     "D1_CamAlign_common_yaw": {
-      "weighted_mean_from_rows": 0.5881553677111538,
+      "weighted_mean_from_rows": 0.460350666666656,
       "n": 7800
     },
     "D1_CamAlign_static_hold": {
@@ -51,7 +51,7 @@
         "n": 7500
       },
       "D1-CamAlign common-yaw": {
-        "weighted_mean": 0.5881553677112247,
+        "weighted_mean": 0.460350666666656,
         "n": 7800
       },
       "D1-CamAlign API static-hold": {
@@ -106,8 +106,19 @@
     "d5_d6_denominator_policy": "conditional_shared_E14_applicable_rows_not_full_9600",
     "d1_metric_policy": "D1_CamPrec_and_D1_CamAlign_are_separate_not_merged",
     "rounding_notes": [
-      "D1_CamAlign_static_hold per-model values are rounded in the research-note CSV; authoritative aggregate is camera_metrics_current_20260608.csv."
+      "D1_CamAlign_static_hold per-model values are rounded in the published CSV; this JSON preserves the authoritative aggregate."
     ]
+  },
+  "column_status": {
+    "paper_group": "DEPRECATED legacy grouping (V2V/Camera/Interactive/API prompt-camera). No longer used in the paper. The paper and the live table builder (wrbench.eval.aggregate.build_wrbench_vnext_main_table) group models by viewpoint_condition_type (source-video/geometry-cache/model-inferred/prompt-only). Retained only to reproduce the frozen published artifact; do not use for new analysis.",
+    "source_group": "DEPRECATED legacy provenance bucket (local_deployed/api_prompt_camera). Retained for the frozen artifact only.",
+    "model_input": "Model input modality, one of {T2V, TI2V, TV2V}. Derived from the wrbench registry input_kind (image=TI2V, source_video=TV2V, none=T2V); API prompt-camera rows have no local registry record and are classified by their first-frame image-to-video (I2V) input contract = TI2V. Independent of viewpoint_condition_type: e.g. Gen3C/Spatia consume a source video (TV2V) but deliver a geometry-cache condition, and VerseCrafter takes an image (TI2V) but delivers a geometry-cache condition.",
+    "viewpoint_condition_type": "Paper viewpoint condition type (Table 2): source-video, geometry-cache, model-inferred, or prompt-only. Canonical mapping lives in wrbench.eval.aggregate.build_wrbench_vnext_main_table.VIEWPOINT_CONDITION_BY_MODEL."
+  },
+  "model_input_policy": {
+    "T2V": "Text-to-video; no first-frame image and no source/reference video. registry input_kind=none. No T2V model is present in this frozen 23-model table (see wrbench_t2v_results.json for the separate T2V intake table).",
+    "TI2V": "Text + image-to-video; conditioned on a first-frame image. registry input_kind=image, plus all API prompt-camera rows run with first-frame I2V anchoring.",
+    "TV2V": "Text + (source) video-to-video; conditioned on a source/reference video. registry input_kind=source_video."
   },
   "group_policy": {
     "V2V": "Reference/video-to-video and 3D-aware source-world transformation systems: Gen3C, Hydra, InSpatio World 14B, ReCamMaster, Spatia, VerseCrafter.",
@@ -117,7 +128,7 @@
   },
   "metric_policy": {
     "D1_CamPrec": "Strict requested-control precision over local certified requested-control rows; not applicable to API prompt-camera rows.",
-    "D1_CamAlign_common_yaw": "Separate prompt-camera/common-yaw alignment diagnostic; do not merge with D1-CamPrec.",
+    "D1_CamAlign_common_yaw": "CamAlign v2-lite common-yaw alignment (d1_camalign_v2_lite, 2026-06-10); separate from D1-CamPrec.",
     "D1_CamAlign_static_hold": "API static-hold sanity diagnostic over API static-hold rows only.",
     "D2_D3_D4": "Full 9600-output benchmark denominators after removing unsupported Hunyuan GameCraft static-hold rows from the benchmark set.",
     "D5_D6": "Post-judgeability conditional means over shared-E14 applicable rows; denominator is 2073 overall, not 9600.",
@@ -130,10 +141,11 @@
       "display_name": "Gen3C",
       "paper_group": "V2V",
       "source_group": "local_deployed",
+      "model_input": "TV2V",
       "n_outputs": 400,
       "D1_CamPrec": 0.6986732682216313,
       "D1_CamPrec_n": 400,
-      "D1_CamAlign_common_yaw": 0.901709609919,
+      "D1_CamAlign_common_yaw": 0.763661,
       "D1_CamAlign_common_yaw_n": 400,
       "D1_CamAlign_static_hold": null,
       "D1_CamAlign_static_hold_n": 0,
@@ -149,17 +161,20 @@
       "D6_n": 292,
       "gate_applicable_rate": 0.73,
       "low_n_flag": false,
-      "metric_notes": "D1-CamPrec and D1-CamAlign are separate metrics; D5/D6 are conditional over shared-E14 applicable rows"
+      "metric_notes": "D1-CamPrec and D1-CamAlign are separate metrics; D5/D6 are conditional over shared-E14 applicable rows; CamAlign common-yaw uses d1_camalign_v2_lite (2026-06-10)",
+      "Avg": 0.6858669499115,
+      "viewpoint_condition_type": "geometry-cache"
     },
     {
       "model_id": "hailuo_2_3",
       "display_name": "Hailuo 2.3",
       "paper_group": "API prompt-camera",
       "source_group": "api_prompt_camera",
+      "model_input": "TI2V",
       "n_outputs": 300,
       "D1_CamPrec": null,
       "D1_CamPrec_n": 0,
-      "D1_CamAlign_common_yaw": 0.074557858075,
+      "D1_CamAlign_common_yaw": 0.074558,
       "D1_CamAlign_common_yaw_n": 200,
       "D1_CamAlign_static_hold": 0.981497,
       "D1_CamAlign_static_hold_n": 100,
@@ -175,17 +190,20 @@
       "D6_n": 19,
       "gate_applicable_rate": 0.06333333333333334,
       "low_n_flag": true,
-      "metric_notes": "D1-CamPrec and D1-CamAlign are separate metrics; D5/D6 are conditional over shared-E14 applicable rows; D1-CamPrec not applicable to API prompt-camera rows; low re-observation support: D5/D6 n < 10 or gate_applicable_rate < 0.10"
+      "metric_notes": "D1-CamPrec and D1-CamAlign are separate metrics; D5/D6 are conditional over shared-E14 applicable rows; D1-CamPrec not applicable to API prompt-camera rows; low re-observation support: D5/D6 n < 10 or gate_applicable_rate < 0.10; CamAlign common-yaw uses d1_camalign_v2_lite (2026-06-10)",
+      "Avg": 0.6521638952558334,
+      "viewpoint_condition_type": "prompt-only"
     },
     {
       "model_id": "happyhorse_1_0_i2v",
       "display_name": "HappyHorse 1.0 I2V",
       "paper_group": "API prompt-camera",
       "source_group": "api_prompt_camera",
+      "model_input": "TI2V",
       "n_outputs": 300,
       "D1_CamPrec": null,
       "D1_CamPrec_n": 0,
-      "D1_CamAlign_common_yaw": 0.024535257332,
+      "D1_CamAlign_common_yaw": 0.024535,
       "D1_CamAlign_common_yaw_n": 200,
       "D1_CamAlign_static_hold": 0.922438,
       "D1_CamAlign_static_hold_n": 100,
@@ -201,17 +219,20 @@
       "D6_n": 31,
       "gate_applicable_rate": 0.10333333333333333,
       "low_n_flag": false,
-      "metric_notes": "D1-CamPrec and D1-CamAlign are separate metrics; D5/D6 are conditional over shared-E14 applicable rows; D1-CamPrec not applicable to API prompt-camera rows"
+      "metric_notes": "D1-CamPrec and D1-CamAlign are separate metrics; D5/D6 are conditional over shared-E14 applicable rows; D1-CamPrec not applicable to API prompt-camera rows; CamAlign common-yaw uses d1_camalign_v2_lite (2026-06-10)",
+      "Avg": 0.6582765850491666,
+      "viewpoint_condition_type": "prompt-only"
     },
     {
       "model_id": "hunyuan_game_craft",
       "display_name": "Hunyuan GameCraft",
       "paper_group": "Interactive",
       "source_group": "local_deployed",
+      "model_input": "TI2V",
       "n_outputs": 400,
       "D1_CamPrec": 0.5340754755383156,
       "D1_CamPrec_n": 400,
-      "D1_CamAlign_common_yaw": 0.463518552636,
+      "D1_CamAlign_common_yaw": 0.360795,
       "D1_CamAlign_common_yaw_n": 400,
       "D1_CamAlign_static_hold": null,
       "D1_CamAlign_static_hold_n": 0,
@@ -227,17 +248,20 @@
       "D6_n": 24,
       "gate_applicable_rate": 0.06,
       "low_n_flag": true,
-      "metric_notes": "D1-CamPrec and D1-CamAlign are separate metrics; D5/D6 are conditional over shared-E14 applicable rows; low re-observation support: D5/D6 n < 10 or gate_applicable_rate < 0.10; Hunyuan GameCraft static-hold rows removed from the full benchmark set before aggregation"
+      "metric_notes": "D1-CamPrec and D1-CamAlign are separate metrics; D5/D6 are conditional over shared-E14 applicable rows; low re-observation support: D5/D6 n < 10 or gate_applicable_rate < 0.10; Hunyuan GameCraft static-hold rows removed from the full benchmark set before aggregation; CamAlign common-yaw uses d1_camalign_v2_lite (2026-06-10)",
+      "Avg": 0.5371364454798334,
+      "viewpoint_condition_type": "model-inferred"
     },
     {
       "model_id": "hunyuan_worldplay",
       "display_name": "Hunyuan WorldPlay",
       "paper_group": "Interactive",
       "source_group": "local_deployed",
+      "model_input": "TI2V",
       "n_outputs": 500,
       "D1_CamPrec": 0.7083159628523558,
       "D1_CamPrec_n": 500,
-      "D1_CamAlign_common_yaw": 0.400754785971,
+      "D1_CamAlign_common_yaw": 0.260852,
       "D1_CamAlign_common_yaw_n": 400,
       "D1_CamAlign_static_hold": null,
       "D1_CamAlign_static_hold_n": 0,
@@ -253,17 +277,20 @@
       "D6_n": 104,
       "gate_applicable_rate": 0.208,
       "low_n_flag": false,
-      "metric_notes": "D1-CamPrec and D1-CamAlign are separate metrics; D5/D6 are conditional over shared-E14 applicable rows"
+      "metric_notes": "D1-CamPrec and D1-CamAlign are separate metrics; D5/D6 are conditional over shared-E14 applicable rows; CamAlign common-yaw uses d1_camalign_v2_lite (2026-06-10)",
+      "Avg": 0.6054486406011667,
+      "viewpoint_condition_type": "model-inferred"
     },
     {
       "model_id": "hydra",
       "display_name": "Hydra",
       "paper_group": "V2V",
       "source_group": "local_deployed",
+      "model_input": "TV2V",
       "n_outputs": 400,
       "D1_CamPrec": 0.8223181200767271,
       "D1_CamPrec_n": 400,
-      "D1_CamAlign_common_yaw": 0.998559871638,
+      "D1_CamAlign_common_yaw": 0.854661,
       "D1_CamAlign_common_yaw_n": 400,
       "D1_CamAlign_static_hold": null,
       "D1_CamAlign_static_hold_n": 0,
@@ -279,17 +306,20 @@
       "D6_n": 133,
       "gate_applicable_rate": 0.3325,
       "low_n_flag": false,
-      "metric_notes": "D1-CamPrec and D1-CamAlign are separate metrics; D5/D6 are conditional over shared-E14 applicable rows"
+      "metric_notes": "D1-CamPrec and D1-CamAlign are separate metrics; D5/D6 are conditional over shared-E14 applicable rows; CamAlign common-yaw uses d1_camalign_v2_lite (2026-06-10)",
+      "Avg": 0.6079425286765,
+      "viewpoint_condition_type": "source-video"
     },
     {
       "model_id": "inspatio_world_14b",
       "display_name": "InSpatio World 14B",
       "paper_group": "V2V",
       "source_group": "local_deployed",
+      "model_input": "TV2V",
       "n_outputs": 400,
       "D1_CamPrec": 0.6933722703322396,
       "D1_CamPrec_n": 400,
-      "D1_CamAlign_common_yaw": 0.834686196744,
+      "D1_CamAlign_common_yaw": 0.661046,
       "D1_CamAlign_common_yaw_n": 400,
       "D1_CamAlign_static_hold": null,
       "D1_CamAlign_static_hold_n": 0,
@@ -305,17 +335,20 @@
       "D6_n": 249,
       "gate_applicable_rate": 0.6225,
       "low_n_flag": false,
-      "metric_notes": "D1-CamPrec and D1-CamAlign are separate metrics; D5/D6 are conditional over shared-E14 applicable rows"
+      "metric_notes": "D1-CamPrec and D1-CamAlign are separate metrics; D5/D6 are conditional over shared-E14 applicable rows; CamAlign common-yaw uses d1_camalign_v2_lite (2026-06-10)",
+      "Avg": 0.7287504226613333,
+      "viewpoint_condition_type": "source-video"
     },
     {
       "model_id": "kling_v2_6",
       "display_name": "Kling v2.6",
       "paper_group": "API prompt-camera",
       "source_group": "api_prompt_camera",
+      "model_input": "TI2V",
       "n_outputs": 300,
       "D1_CamPrec": null,
       "D1_CamPrec_n": 0,
-      "D1_CamAlign_common_yaw": 0.093630324428,
+      "D1_CamAlign_common_yaw": 0.09363,
       "D1_CamAlign_common_yaw_n": 200,
       "D1_CamAlign_static_hold": 0.985198,
       "D1_CamAlign_static_hold_n": 100,
@@ -331,17 +364,20 @@
       "D6_n": 10,
       "gate_applicable_rate": 0.03333333333333333,
       "low_n_flag": true,
-      "metric_notes": "D1-CamPrec and D1-CamAlign are separate metrics; D5/D6 are conditional over shared-E14 applicable rows; D1-CamPrec not applicable to API prompt-camera rows; low re-observation support: D5/D6 n < 10 or gate_applicable_rate < 0.10"
+      "metric_notes": "D1-CamPrec and D1-CamAlign are separate metrics; D5/D6 are conditional over shared-E14 applicable rows; D1-CamPrec not applicable to API prompt-camera rows; low re-observation support: D5/D6 n < 10 or gate_applicable_rate < 0.10; CamAlign common-yaw uses d1_camalign_v2_lite (2026-06-10)",
+      "Avg": 0.6356608338101667,
+      "viewpoint_condition_type": "prompt-only"
     },
     {
       "model_id": "lingbot_world",
       "display_name": "Lingbot World",
       "paper_group": "Camera",
       "source_group": "local_deployed",
+      "model_input": "TI2V",
       "n_outputs": 500,
       "D1_CamPrec": 0.5131662197368047,
       "D1_CamPrec_n": 500,
-      "D1_CamAlign_common_yaw": 0.219696354053,
+      "D1_CamAlign_common_yaw": 0.174531,
       "D1_CamAlign_common_yaw_n": 400,
       "D1_CamAlign_static_hold": null,
       "D1_CamAlign_static_hold_n": 0,
@@ -357,17 +393,20 @@
       "D6_n": 30,
       "gate_applicable_rate": 0.06,
       "low_n_flag": true,
-      "metric_notes": "D1-CamPrec and D1-CamAlign are separate metrics; D5/D6 are conditional over shared-E14 applicable rows; low re-observation support: D5/D6 n < 10 or gate_applicable_rate < 0.10"
+      "metric_notes": "D1-CamPrec and D1-CamAlign are separate metrics; D5/D6 are conditional over shared-E14 applicable rows; low re-observation support: D5/D6 n < 10 or gate_applicable_rate < 0.10; CamAlign common-yaw uses d1_camalign_v2_lite (2026-06-10)",
+      "Avg": 0.6724483778116666,
+      "viewpoint_condition_type": "model-inferred"
     },
     {
       "model_id": "lingbot_world_act",
       "display_name": "Lingbot Act",
       "paper_group": "Camera",
       "source_group": "local_deployed",
+      "model_input": "TI2V",
       "n_outputs": 500,
       "D1_CamPrec": 0.468415889285301,
       "D1_CamPrec_n": 500,
-      "D1_CamAlign_common_yaw": 0.326171716493,
+      "D1_CamAlign_common_yaw": 0.167776,
       "D1_CamAlign_common_yaw_n": 400,
       "D1_CamAlign_static_hold": null,
       "D1_CamAlign_static_hold_n": 0,
@@ -383,17 +422,20 @@
       "D6_n": 32,
       "gate_applicable_rate": 0.064,
       "low_n_flag": true,
-      "metric_notes": "D1-CamPrec and D1-CamAlign are separate metrics; D5/D6 are conditional over shared-E14 applicable rows; low re-observation support: D5/D6 n < 10 or gate_applicable_rate < 0.10"
+      "metric_notes": "D1-CamPrec and D1-CamAlign are separate metrics; D5/D6 are conditional over shared-E14 applicable rows; low re-observation support: D5/D6 n < 10 or gate_applicable_rate < 0.10; CamAlign common-yaw uses d1_camalign_v2_lite (2026-06-10)",
+      "Avg": 0.6854150567085,
+      "viewpoint_condition_type": "model-inferred"
     },
     {
       "model_id": "liveworld",
       "display_name": "LiveWorld",
       "paper_group": "Camera",
       "source_group": "local_deployed",
+      "model_input": "TV2V",
       "n_outputs": 500,
       "D1_CamPrec": 0.8121368981000068,
       "D1_CamPrec_n": 500,
-      "D1_CamAlign_common_yaw": 0.976904946101,
+      "D1_CamAlign_common_yaw": 0.855566,
       "D1_CamAlign_common_yaw_n": 400,
       "D1_CamAlign_static_hold": null,
       "D1_CamAlign_static_hold_n": 0,
@@ -409,17 +451,20 @@
       "D6_n": 198,
       "gate_applicable_rate": 0.396,
       "low_n_flag": false,
-      "metric_notes": "D1-CamPrec and D1-CamAlign are separate metrics; D5/D6 are conditional over shared-E14 applicable rows"
+      "metric_notes": "D1-CamPrec and D1-CamAlign are separate metrics; D5/D6 are conditional over shared-E14 applicable rows; CamAlign common-yaw uses d1_camalign_v2_lite (2026-06-10)",
+      "Avg": 0.6893398947755,
+      "viewpoint_condition_type": "model-inferred"
     },
     {
       "model_id": "magicworld",
       "display_name": "MagicWorld",
       "paper_group": "Interactive",
       "source_group": "local_deployed",
+      "model_input": "TI2V",
       "n_outputs": 500,
       "D1_CamPrec": 0.7638462359878075,
       "D1_CamPrec_n": 500,
-      "D1_CamAlign_common_yaw": 0.85080728928,
+      "D1_CamAlign_common_yaw": 0.720109,
       "D1_CamAlign_common_yaw_n": 400,
       "D1_CamAlign_static_hold": null,
       "D1_CamAlign_static_hold_n": 0,
@@ -435,17 +480,20 @@
       "D6_n": 75,
       "gate_applicable_rate": 0.15,
       "low_n_flag": false,
-      "metric_notes": "D1-CamPrec and D1-CamAlign are separate metrics; D5/D6 are conditional over shared-E14 applicable rows"
+      "metric_notes": "D1-CamPrec and D1-CamAlign are separate metrics; D5/D6 are conditional over shared-E14 applicable rows; CamAlign common-yaw uses d1_camalign_v2_lite (2026-06-10)",
+      "Avg": 0.5836717005198334,
+      "viewpoint_condition_type": "model-inferred"
     },
     {
       "model_id": "recammaster",
       "display_name": "ReCamMaster",
       "paper_group": "V2V",
       "source_group": "local_deployed",
+      "model_input": "TV2V",
       "n_outputs": 400,
       "D1_CamPrec": 0.7169776623770759,
       "D1_CamPrec_n": 400,
-      "D1_CamAlign_common_yaw": 0.939678451448,
+      "D1_CamAlign_common_yaw": 0.729189,
       "D1_CamAlign_common_yaw_n": 400,
       "D1_CamAlign_static_hold": null,
       "D1_CamAlign_static_hold_n": 0,
@@ -461,17 +509,20 @@
       "D6_n": 234,
       "gate_applicable_rate": 0.585,
       "low_n_flag": false,
-      "metric_notes": "D1-CamPrec and D1-CamAlign are separate metrics; D5/D6 are conditional over shared-E14 applicable rows"
+      "metric_notes": "D1-CamPrec and D1-CamAlign are separate metrics; D5/D6 are conditional over shared-E14 applicable rows; CamAlign common-yaw uses d1_camalign_v2_lite (2026-06-10)",
+      "Avg": 0.6667220312673333,
+      "viewpoint_condition_type": "source-video"
     },
     {
       "model_id": "spatia",
       "display_name": "Spatia",
       "paper_group": "V2V",
       "source_group": "local_deployed",
+      "model_input": "TV2V",
       "n_outputs": 500,
       "D1_CamPrec": 0.7041991457894359,
       "D1_CamPrec_n": 500,
-      "D1_CamAlign_common_yaw": 0.620258733793,
+      "D1_CamAlign_common_yaw": 0.481764,
       "D1_CamAlign_common_yaw_n": 400,
       "D1_CamAlign_static_hold": null,
       "D1_CamAlign_static_hold_n": 0,
@@ -487,17 +538,20 @@
       "D6_n": 129,
       "gate_applicable_rate": 0.258,
       "low_n_flag": false,
-      "metric_notes": "D1-CamPrec and D1-CamAlign are separate metrics; D5/D6 are conditional over shared-E14 applicable rows"
+      "metric_notes": "D1-CamPrec and D1-CamAlign are separate metrics; D5/D6 are conditional over shared-E14 applicable rows; CamAlign common-yaw uses d1_camalign_v2_lite (2026-06-10)",
+      "Avg": 0.6173475646471666,
+      "viewpoint_condition_type": "geometry-cache"
     },
     {
       "model_id": "versecrafter",
       "display_name": "VerseCrafter",
       "paper_group": "V2V",
       "source_group": "local_deployed",
+      "model_input": "TI2V",
       "n_outputs": 500,
       "D1_CamPrec": 0.7807246583789277,
       "D1_CamPrec_n": 500,
-      "D1_CamAlign_common_yaw": 0.903783251085,
+      "D1_CamAlign_common_yaw": 0.667481,
       "D1_CamAlign_common_yaw_n": 400,
       "D1_CamAlign_static_hold": null,
       "D1_CamAlign_static_hold_n": 0,
@@ -513,17 +567,20 @@
       "D6_n": 140,
       "gate_applicable_rate": 0.28,
       "low_n_flag": false,
-      "metric_notes": "D1-CamPrec and D1-CamAlign are separate metrics; D5/D6 are conditional over shared-E14 applicable rows"
+      "metric_notes": "D1-CamPrec and D1-CamAlign are separate metrics; D5/D6 are conditional over shared-E14 applicable rows; CamAlign common-yaw uses d1_camalign_v2_lite (2026-06-10)",
+      "Avg": 0.6532788629563333,
+      "viewpoint_condition_type": "geometry-cache"
     },
     {
       "model_id": "wan21_fun_14b_cam",
       "display_name": "Wan-Fun 2.1-14B",
       "paper_group": "Camera",
       "source_group": "local_deployed",
+      "model_input": "TI2V",
       "n_outputs": 500,
       "D1_CamPrec": 0.7568789687513983,
       "D1_CamPrec_n": 500,
-      "D1_CamAlign_common_yaw": 0.740019937597,
+      "D1_CamAlign_common_yaw": 0.52611,
       "D1_CamAlign_common_yaw_n": 400,
       "D1_CamAlign_static_hold": null,
       "D1_CamAlign_static_hold_n": 0,
@@ -539,17 +596,20 @@
       "D6_n": 91,
       "gate_applicable_rate": 0.182,
       "low_n_flag": false,
-      "metric_notes": "D1-CamPrec and D1-CamAlign are separate metrics; D5/D6 are conditional over shared-E14 applicable rows"
+      "metric_notes": "D1-CamPrec and D1-CamAlign are separate metrics; D5/D6 are conditional over shared-E14 applicable rows; CamAlign common-yaw uses d1_camalign_v2_lite (2026-06-10)",
+      "Avg": 0.6525025801543333,
+      "viewpoint_condition_type": "model-inferred"
     },
     {
       "model_id": "wan21_fun_1p3b_cam",
       "display_name": "Wan-Fun 2.1-1.3B",
       "paper_group": "Camera",
       "source_group": "local_deployed",
+      "model_input": "TI2V",
       "n_outputs": 500,
       "D1_CamPrec": 0.7709604732046365,
       "D1_CamPrec_n": 500,
-      "D1_CamAlign_common_yaw": 0.882342574345,
+      "D1_CamAlign_common_yaw": 0.729311,
       "D1_CamAlign_common_yaw_n": 400,
       "D1_CamAlign_static_hold": null,
       "D1_CamAlign_static_hold_n": 0,
@@ -565,17 +625,20 @@
       "D6_n": 69,
       "gate_applicable_rate": 0.138,
       "low_n_flag": false,
-      "metric_notes": "D1-CamPrec and D1-CamAlign are separate metrics; D5/D6 are conditional over shared-E14 applicable rows"
+      "metric_notes": "D1-CamPrec and D1-CamAlign are separate metrics; D5/D6 are conditional over shared-E14 applicable rows; CamAlign common-yaw uses d1_camalign_v2_lite (2026-06-10)",
+      "Avg": 0.6959455047221667,
+      "viewpoint_condition_type": "model-inferred"
     },
     {
       "model_id": "wan22_fun_5b_cam",
       "display_name": "Wan-Fun 2.2-5B",
       "paper_group": "Camera",
       "source_group": "local_deployed",
+      "model_input": "TI2V",
       "n_outputs": 500,
       "D1_CamPrec": 0.7236928136410914,
       "D1_CamPrec_n": 500,
-      "D1_CamAlign_common_yaw": 0.513048021974,
+      "D1_CamAlign_common_yaw": 0.334865,
       "D1_CamAlign_common_yaw_n": 400,
       "D1_CamAlign_static_hold": null,
       "D1_CamAlign_static_hold_n": 0,
@@ -591,17 +654,20 @@
       "D6_n": 60,
       "gate_applicable_rate": 0.12,
       "low_n_flag": false,
-      "metric_notes": "D1-CamPrec and D1-CamAlign are separate metrics; D5/D6 are conditional over shared-E14 applicable rows"
+      "metric_notes": "D1-CamPrec and D1-CamAlign are separate metrics; D5/D6 are conditional over shared-E14 applicable rows; CamAlign common-yaw uses d1_camalign_v2_lite (2026-06-10)",
+      "Avg": 0.6552583557791666,
+      "viewpoint_condition_type": "model-inferred"
     },
     {
       "model_id": "wan22_fun_a14b_cam",
       "display_name": "Wan-Fun 2.2-A14B",
       "paper_group": "Camera",
       "source_group": "local_deployed",
+      "model_input": "TI2V",
       "n_outputs": 500,
       "D1_CamPrec": 0.7577837775579306,
       "D1_CamPrec_n": 500,
-      "D1_CamAlign_common_yaw": 0.761210017847,
+      "D1_CamAlign_common_yaw": 0.553242,
       "D1_CamAlign_common_yaw_n": 400,
       "D1_CamAlign_static_hold": null,
       "D1_CamAlign_static_hold_n": 0,
@@ -617,17 +683,20 @@
       "D6_n": 88,
       "gate_applicable_rate": 0.176,
       "low_n_flag": false,
-      "metric_notes": "D1-CamPrec and D1-CamAlign are separate metrics; D5/D6 are conditional over shared-E14 applicable rows"
+      "metric_notes": "D1-CamPrec and D1-CamAlign are separate metrics; D5/D6 are conditional over shared-E14 applicable rows; CamAlign common-yaw uses d1_camalign_v2_lite (2026-06-10)",
+      "Avg": 0.6971828962746668,
+      "viewpoint_condition_type": "model-inferred"
     },
     {
       "model_id": "wan2_2_i2v_plus",
       "display_name": "Wan2.2 I2V Plus",
       "paper_group": "API prompt-camera",
       "source_group": "api_prompt_camera",
+      "model_input": "TI2V",
       "n_outputs": 300,
       "D1_CamPrec": null,
       "D1_CamPrec_n": 0,
-      "D1_CamAlign_common_yaw": 0.013104239668,
+      "D1_CamAlign_common_yaw": 0.013104,
       "D1_CamAlign_common_yaw_n": 200,
       "D1_CamAlign_static_hold": 0.89727,
       "D1_CamAlign_static_hold_n": 100,
@@ -643,17 +712,20 @@
       "D6_n": 6,
       "gate_applicable_rate": 0.02,
       "low_n_flag": true,
-      "metric_notes": "D1-CamPrec and D1-CamAlign are separate metrics; D5/D6 are conditional over shared-E14 applicable rows; D1-CamPrec not applicable to API prompt-camera rows; low re-observation support: D5/D6 n < 10 or gate_applicable_rate < 0.10"
+      "metric_notes": "D1-CamPrec and D1-CamAlign are separate metrics; D5/D6 are conditional over shared-E14 applicable rows; D1-CamPrec not applicable to API prompt-camera rows; low re-observation support: D5/D6 n < 10 or gate_applicable_rate < 0.10; CamAlign common-yaw uses d1_camalign_v2_lite (2026-06-10)",
+      "Avg": 0.6018282014891666,
+      "viewpoint_condition_type": "prompt-only"
     },
     {
       "model_id": "wan2_6_i2v",
       "display_name": "Wan2.6 I2V",
       "paper_group": "API prompt-camera",
       "source_group": "api_prompt_camera",
+      "model_input": "TI2V",
       "n_outputs": 300,
       "D1_CamPrec": null,
       "D1_CamPrec_n": 0,
-      "D1_CamAlign_common_yaw": 0.015884438204,
+      "D1_CamAlign_common_yaw": 0.015884,
       "D1_CamAlign_common_yaw_n": 200,
       "D1_CamAlign_static_hold": 0.952684,
       "D1_CamAlign_static_hold_n": 100,
@@ -669,17 +741,20 @@
       "D6_n": 38,
       "gate_applicable_rate": 0.12666666666666668,
       "low_n_flag": false,
-      "metric_notes": "D1-CamPrec and D1-CamAlign are separate metrics; D5/D6 are conditional over shared-E14 applicable rows; D1-CamPrec not applicable to API prompt-camera rows"
+      "metric_notes": "D1-CamPrec and D1-CamAlign are separate metrics; D5/D6 are conditional over shared-E14 applicable rows; D1-CamPrec not applicable to API prompt-camera rows; CamAlign common-yaw uses d1_camalign_v2_lite (2026-06-10)",
+      "Avg": 0.6039898445549999,
+      "viewpoint_condition_type": "prompt-only"
     },
     {
       "model_id": "wan2_7_i2v",
       "display_name": "Wan2.7 I2V",
       "paper_group": "API prompt-camera",
       "source_group": "api_prompt_camera",
+      "model_input": "TI2V",
       "n_outputs": 300,
       "D1_CamPrec": null,
       "D1_CamPrec_n": 0,
-      "D1_CamAlign_common_yaw": 0.020147897165,
+      "D1_CamAlign_common_yaw": 0.020148,
       "D1_CamAlign_common_yaw_n": 200,
       "D1_CamAlign_static_hold": 0.989341,
       "D1_CamAlign_static_hold_n": 100,
@@ -695,17 +770,20 @@
       "D6_n": 18,
       "gate_applicable_rate": 0.06,
       "low_n_flag": true,
-      "metric_notes": "D1-CamPrec and D1-CamAlign are separate metrics; D5/D6 are conditional over shared-E14 applicable rows; D1-CamPrec not applicable to API prompt-camera rows; low re-observation support: D5/D6 n < 10 or gate_applicable_rate < 0.10"
+      "metric_notes": "D1-CamPrec and D1-CamAlign are separate metrics; D5/D6 are conditional over shared-E14 applicable rows; D1-CamPrec not applicable to API prompt-camera rows; low re-observation support: D5/D6 n < 10 or gate_applicable_rate < 0.10; CamAlign common-yaw uses d1_camalign_v2_lite (2026-06-10)",
+      "Avg": 0.6077644354866667,
+      "viewpoint_condition_type": "prompt-only"
     },
     {
       "model_id": "wanx2_1_i2v_turbo",
       "display_name": "WanX2.1 I2V Turbo",
       "paper_group": "API prompt-camera",
       "source_group": "api_prompt_camera",
+      "model_input": "TI2V",
       "n_outputs": 300,
       "D1_CamPrec": null,
       "D1_CamPrec_n": 0,
-      "D1_CamAlign_common_yaw": 0.029898704015,
+      "D1_CamAlign_common_yaw": 0.029899,
       "D1_CamAlign_common_yaw_n": 200,
       "D1_CamAlign_static_hold": 0.732483,
       "D1_CamAlign_static_hold_n": 100,
@@ -721,7 +799,9 @@
       "D6_n": 3,
       "gate_applicable_rate": 0.01,
       "low_n_flag": true,
-      "metric_notes": "D1-CamPrec and D1-CamAlign are separate metrics; D5/D6 are conditional over shared-E14 applicable rows; D1-CamPrec not applicable to API prompt-camera rows; low re-observation support: D5/D6 n < 10 or gate_applicable_rate < 0.10"
+      "metric_notes": "D1-CamPrec and D1-CamAlign are separate metrics; D5/D6 are conditional over shared-E14 applicable rows; D1-CamPrec not applicable to API prompt-camera rows; low re-observation support: D5/D6 n < 10 or gate_applicable_rate < 0.10; CamAlign common-yaw uses d1_camalign_v2_lite (2026-06-10)",
+      "Avg": 0.6440845176743334,
+      "viewpoint_condition_type": "prompt-only"
     }
   ]
 }

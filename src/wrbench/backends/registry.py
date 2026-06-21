@@ -14,24 +14,18 @@ def resolve_backend(
     runtime: RuntimeConfig | None = None,
     backend_name: str | None = None,
 ) -> GenerationBackend:
-    """Return the best available backend for *model*.
-
-    Falls back to :class:`DryRunBackend` when no real backend is configured.
-    """
+    """Return the backend selected by explicit config and model support."""
 
     key = canonical_model_key(model)
     if backend_name in (None, "", "dry_run"):
         runtime = runtime if runtime is not None else load_runtime_config()
         if runtime is not None and runtime.model(key) is not None:
-            local = LocalSubprocessBackend(runtime)
-            ok, _ = local.available_for(key)
-            if ok:
-                return local
+            return LocalSubprocessBackend(runtime)
         return DryRunBackend()
     if backend_name == "local_subprocess":
         runtime = runtime if runtime is not None else load_runtime_config()
         if runtime is None:
-            return DryRunBackend()
+            raise RuntimeError("backend 'local_subprocess' requires an explicit wrbench.runtime.json")
         return LocalSubprocessBackend(runtime)
     raise ValueError(f"Unknown backend {backend_name!r}")
 
@@ -50,5 +44,5 @@ def list_backends(model: str, *, runtime: RuntimeConfig | None = None) -> list[t
         ok, msg = local.available_for(key)
         rows.append((local.name, ok, msg))
     else:
-        rows.append(("local_subprocess", False, "wrbench.runtime.json not found"))
+        rows.append(("local_subprocess", False, "explicit wrbench.runtime.json not provided"))
     return rows

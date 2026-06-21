@@ -6,7 +6,17 @@ assembly (copy-optimized vs Hailuo command injection).
 
 from __future__ import annotations
 
+import re
 from typing import Any
+
+_SUBJECT_PRONOUN_RE = re.compile(r"\b(He|She|It|he|she|it)\b")
+_VERB_SPLIT_RE = re.compile(
+    r"\s+(?:stands|walks|runs|jumps|sits|remains|places|tips|knocks|folds|carries|moves|"
+    r"approaches|rests|kneels|eats|drinks|reads|writes|opens|closes|lifts|drops|pulls|"
+    r"pushes|turns|looks|reaches|holds|picks|puts|leans|falls|lies|sleeps|wakes|waits|"
+    r"enters|exits|leaves|arrives|departs)\b",
+    re.I,
+)
 
 
 CAMERA_CLAUSES: dict[str, str] = {
@@ -92,14 +102,58 @@ PRESET_TO_GAP = {
 }
 
 
+def extract_subject_phrase(
+    world_state_prompt: str,
+    known_subjects: tuple[str, ...] | list[str] | None = None,
+) -> str:
+    """Extract an explicit subject noun phrase from a world-state sentence."""
+    text = str(world_state_prompt or "").strip()
+    if not text:
+        raise ValueError("world_state_prompt is empty")
+    if known_subjects:
+        for subject in sorted(known_subjects, key=len, reverse=True):
+            if text.startswith(subject):
+                return subject
+    split = _VERB_SPLIT_RE.split(text, maxsplit=1)
+    if split and split[0].strip():
+        return split[0].strip().rstrip(",")
+    return text.split(".", 1)[0].strip()
+
+
+def anchor_subject_in_prompt(prompt: str, subject_phrase: str) -> str:
+    """Replace the first subject pronoun with an explicit subject noun phrase."""
+    phrase = str(subject_phrase or "").strip()
+    if not phrase:
+        raise ValueError("subject_phrase is empty")
+
+    def _replace(match: re.Match[str]) -> str:
+        start = match.start()
+        prefix = prompt[:start]
+        stripped = prefix.rstrip()
+        if not stripped:
+            return phrase
+        if stripped.endswith((",", ";", ":")):
+            return phrase[0].lower() + phrase[1:]
+        if stripped.endswith((".", "?", "!")):
+            return phrase
+        return phrase[0].lower() + phrase[1:]
+
+    updated, count = _SUBJECT_PRONOUN_RE.subn(_replace, prompt, count=1)
+    if count == 0:
+        return prompt
+    return updated
+
+
 def assemble_ti2v_prompt(
     scene_start: str,
     event: str,
     pronoun: str,
     offscreen_area: str,
     oov_gap: str,
+    *,
+    subject_phrase: str | None = None,
 ) -> str:
-    """Assemble the final video prompt for a specific camera gap."""
+    """Assemble the unified WRBench video prompt for a specific camera gap."""
     parts = [scene_start.strip()]
     if event and event.strip():
         parts.append(event.strip())
@@ -108,7 +162,10 @@ def assemble_ti2v_prompt(
     camera_template = CAMERA_CLAUSES[oov_gap]
     if camera_template:
         parts.append(camera_template.format(pronoun=pronoun, offscreen_area=offscreen_area))
-    return " ".join(parts)
+    prompt = " ".join(parts)
+    if subject_phrase:
+        prompt = anchor_subject_in_prompt(prompt, subject_phrase)
+    return prompt
 
 
 def camera_clause(

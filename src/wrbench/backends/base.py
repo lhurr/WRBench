@@ -1,8 +1,8 @@
 """Optional real-generation backend hooks.
 
-WRBench's default mode compiles camera payloads and sidecars without invoking any
-heavy model pipeline (dry-run). Backends connect the compiled payload to a
-model's native inference environment when weights, GPU, and venv are available.
+WRBench compiles camera payloads and sidecars with ``dry_run=True``. Backends
+connect the compiled payload to a model's native inference environment when
+weights, GPU, and venv are available.
 """
 
 from __future__ import annotations

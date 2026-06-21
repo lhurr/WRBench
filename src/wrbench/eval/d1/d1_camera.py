@@ -118,7 +118,7 @@ def _validation_metadata(payload: dict[str, Any], validation: Any) -> dict[str, 
     }
 
 
-def _load_explicit_target(row: dict[str, Any], *, require_main_profile: bool = True) -> dict[str, Any] | None:
+def _load_explicit_target(row: dict[str, Any], *, require_main_profile: bool) -> dict[str, Any] | None:
     for field in PRIMARY_TARGET_POSE_PATH_FIELDS:
         value = row.get(field)
         if not value:
@@ -237,7 +237,7 @@ def _load_sidecar_target(
     suffix: str = ".camera.json",
     source: str = "camera_sidecar",
     fields: tuple[str, ...] = ("target_pose_path", "trajectory_c2w_path", "input_pose_path"),
-    require_main_profile: bool = True,
+    require_main_profile: bool,
 ) -> dict[str, Any] | None:
     path = row.get("path") or row.get("video_path")
     if not path:
@@ -340,8 +340,8 @@ def _load_sidecar_target(
 def build_d1_target(
     row: dict[str, Any],
     *,
-    default_frames: int = 121,
-    require_main_profile: bool = True,
+    default_frames: int,
+    require_main_profile: bool,
 ) -> dict[str, Any]:
     """Return the D1 target pose payload for one candidate row.
 
@@ -454,7 +454,9 @@ def _trajectory_shape_correlation(target: np.ndarray, predicted: np.ndarray) -> 
 
 def _movement_strength_rot(poses: np.ndarray) -> float:
     rel = _relative_poses(poses)
-    return max((_rotation_angle_deg(pose[:3, :3]) for pose in rel), default=0.0)
+    if len(rel) == 0:
+        return 0.0
+    return max(_rotation_angle_deg(pose[:3, :3]) for pose in rel)
 
 
 def _movement_strength_trans(poses: np.ndarray) -> float:
@@ -476,13 +478,15 @@ def score_d1_trajectory(
     predicted_poses: Any,
     *,
     camera_type: str,
-    predicted_pose_type: str = "c2w",
-    predicted_camera_convention: str = "opencv",
-    target_camera_convention: str = "opencv",
-    yaw_weak_threshold_deg: float = 2.0,
-    pan_weak_threshold: float = 1e-4,
-    static_rot_threshold_deg: float = 2.0,
-    static_trans_threshold: float = 0.05,
+    predicted_pose_type: str,
+    predicted_camera_convention: str,
+    target_camera_convention: str,
+    rot_scale_deg: float,
+    trans_scale: float,
+    yaw_weak_threshold_deg: float,
+    pan_weak_threshold: float,
+    static_rot_threshold_deg: float,
+    static_trans_threshold: float,
 ) -> dict[str, Any]:
     target = _expand_poses(target_poses_c2w)
     predicted = _normalize_predicted_poses(
@@ -509,6 +513,8 @@ def score_d1_trajectory(
     pose = score_trajectory_pose(
         target,
         predicted,
+        rot_scale_deg=rot_scale_deg,
+        trans_scale=trans_scale,
         predicted_pose_type="c2w",
         predicted_camera_convention="opencv",
         target_camera_convention=target_camera_convention,
@@ -649,14 +655,65 @@ def _with_d1_status(row: dict[str, Any], status: str, *, target: dict[str, Any] 
     return enriched
 
 
-def score_d1_row(row: dict[str, Any], config: dict[str, Any] | None = None) -> dict[str, Any]:
-    cfg = dict(config or {})
+def _require_config(config: dict[str, Any], field: str) -> Any:
+    if field not in config:
+        raise ValueError(f"D1 config field {field!r} is required")
+    value = config[field]
+    if value is None or (isinstance(value, str) and not value.strip()):
+        raise ValueError(f"D1 config field {field!r} is required")
+    return value
+
+
+def _require_config_int(config: dict[str, Any], field: str) -> int:
+    value = _require_config(config, field)
+    try:
+        return int(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"D1 config field {field!r} must be an integer") from exc
+
+
+def _require_config_float(config: dict[str, Any], field: str) -> float:
+    value = _require_config(config, field)
+    try:
+        return float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"D1 config field {field!r} must be a number") from exc
+
+
+def _require_config_bool(config: dict[str, Any], field: str) -> bool:
+    value = _require_config(config, field)
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"1", "true", "yes"}:
+            return True
+        if normalized in {"0", "false", "no"}:
+            return False
+    raise ValueError(f"D1 config field {field!r} must be a boolean")
+
+
+def score_d1_row(row: dict[str, Any], config: dict[str, Any]) -> dict[str, Any]:
+    cfg = dict(config)
+    default_frames = _require_config_int(cfg, "default_frames")
+    require_main_profile = _require_config_bool(cfg, "require_main_profile")
+    cache_root = _require_config(cfg, "cache_root")
+    poses_file = str(_require_config(cfg, "poses_file"))
+    predicted_pose_type = str(_require_config(cfg, "predicted_pose_type"))
+    predicted_camera_convention = str(_require_config(cfg, "predicted_camera_convention"))
+    target_camera_convention = str(_require_config(cfg, "target_camera_convention"))
+    rot_scale_deg = _require_config_float(cfg, "rot_scale_deg")
+    trans_scale = _require_config_float(cfg, "trans_scale")
+    yaw_weak_threshold_deg = _require_config_float(cfg, "yaw_weak_threshold_deg")
+    pan_weak_threshold = _require_config_float(cfg, "pan_weak_threshold")
+    static_rot_threshold_deg = _require_config_float(cfg, "static_rot_threshold_deg")
+    static_trans_threshold = _require_config_float(cfg, "static_trans_threshold")
     camera = _camera_type(row)
     if camera == "uncontrolled":
         target = build_d1_target(
             row,
-            default_frames=int(cfg.get("default_frames", 121)),
-            require_main_profile=bool(cfg.get("require_main_profile", True)),
+            default_frames=default_frames,
+            require_main_profile=require_main_profile,
         )
         return _with_d1_status(row, "excluded_uncontrolled", target=target, flags=["excluded_uncontrolled"])
     if camera not in ELIGIBLE_CAMERAS:
@@ -664,16 +721,16 @@ def score_d1_row(row: dict[str, Any], config: dict[str, Any] | None = None) -> d
 
     target = build_d1_target(
         row,
-        default_frames=int(cfg.get("default_frames", 121)),
-        require_main_profile=bool(cfg.get("require_main_profile", True)),
+        default_frames=default_frames,
+        require_main_profile=require_main_profile,
     )
     if target.get("status") != "ok":
         return _with_d1_status(row, str(target.get("status", "error")), target=target, flags=list(target.get("notes") or []))
 
     pose_file = _pose_file_for(
         row,
-        cfg.get("cache_root") or cfg.get("megasam_cache_root") or ".cache/reward_scoring",
-        cfg.get("poses_file", "poses.npy"),
+        cache_root,
+        poses_file,
     )
     if not pose_file.exists():
         return _with_d1_status(row, "missing_output", target=target, flags=["missing_predicted_pose"])
@@ -684,13 +741,15 @@ def score_d1_row(row: dict[str, Any], config: dict[str, Any] | None = None) -> d
             target["poses_c2w"],
             predicted,
             camera_type=camera,
-            predicted_pose_type=cfg.get("predicted_pose_type", "c2w"),
-            predicted_camera_convention=cfg.get("predicted_camera_convention", "opencv"),
-            target_camera_convention=cfg.get("target_camera_convention", "opencv"),
-            yaw_weak_threshold_deg=float(cfg.get("yaw_weak_threshold_deg", 2.0)),
-            pan_weak_threshold=float(cfg.get("pan_weak_threshold", 1e-4)),
-            static_rot_threshold_deg=float(cfg.get("static_rot_threshold_deg", 2.0)),
-            static_trans_threshold=float(cfg.get("static_trans_threshold", 0.05)),
+            predicted_pose_type=predicted_pose_type,
+            predicted_camera_convention=predicted_camera_convention,
+            target_camera_convention=target_camera_convention,
+            rot_scale_deg=rot_scale_deg,
+            trans_scale=trans_scale,
+            yaw_weak_threshold_deg=yaw_weak_threshold_deg,
+            pan_weak_threshold=pan_weak_threshold,
+            static_rot_threshold_deg=static_rot_threshold_deg,
+            static_trans_threshold=static_trans_threshold,
         )
     except ValueError:
         return _with_d1_status(row, "invalid_pose", target=target, flags=["invalid_predicted_pose"])
@@ -804,7 +863,7 @@ def write_summary_csv(rows: list[dict[str, Any]], path: str | Path) -> None:
             )
 
 
-def score_d1_rows(rows: list[dict[str, Any]], config: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+def score_d1_rows(rows: list[dict[str, Any]], config: dict[str, Any]) -> list[dict[str, Any]]:
     return [score_d1_row(row, config) for row in rows]
 
 
@@ -814,13 +873,22 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--output_jsonl", "--output-jsonl", "--output", dest="output_jsonl", required=True)
     parser.add_argument("--summary_csv", "--summary-csv", dest="summary_csv", required=True)
     parser.add_argument("--megasam_cache_root", "--megasam-cache-root", "--pose-cache-root", dest="pose_cache_root", required=True)
-    parser.add_argument("--pose-backend", default="megasam")
-    parser.add_argument("--poses_file", "--poses-file", dest="poses_file", default="poses.npy")
-    parser.add_argument("--default_frames", "--default-frames", dest="default_frames", type=int, default=121)
+    parser.add_argument("--pose-backend", required=True)
+    parser.add_argument("--poses_file", "--poses-file", dest="poses_file", required=True)
+    parser.add_argument("--default_frames", "--default-frames", dest="default_frames", type=int, required=True)
+    parser.add_argument("--predicted-pose-type", required=True)
+    parser.add_argument("--predicted-camera-convention", required=True)
+    parser.add_argument("--target-camera-convention", required=True)
+    parser.add_argument("--rot-scale-deg", type=float, required=True)
+    parser.add_argument("--trans-scale", type=float, required=True)
+    parser.add_argument("--yaw-weak-threshold-deg", type=float, required=True)
+    parser.add_argument("--pan-weak-threshold", type=float, required=True)
+    parser.add_argument("--static-rot-threshold-deg", type=float, required=True)
+    parser.add_argument("--static-trans-threshold", type=float, required=True)
     parser.add_argument(
         "--sidecar-profile-gate",
         choices=("main", "certified_opencv"),
-        default="main",
+        required=True,
         help=(
             "Target sidecar validation gate. 'main' requires the canonical main-table profile; "
             "'certified_opencv' accepts certified OpenCV C2W sidecars after external QC."
@@ -838,6 +906,15 @@ def main(argv: list[str] | None = None) -> int:
             "poses_file": args.poses_file,
             "default_frames": args.default_frames,
             "require_main_profile": args.sidecar_profile_gate == "main",
+            "predicted_pose_type": args.predicted_pose_type,
+            "predicted_camera_convention": args.predicted_camera_convention,
+            "target_camera_convention": args.target_camera_convention,
+            "rot_scale_deg": args.rot_scale_deg,
+            "trans_scale": args.trans_scale,
+            "yaw_weak_threshold_deg": args.yaw_weak_threshold_deg,
+            "pan_weak_threshold": args.pan_weak_threshold,
+            "static_rot_threshold_deg": args.static_rot_threshold_deg,
+            "static_trans_threshold": args.static_trans_threshold,
         },
     )
     for row in rows:

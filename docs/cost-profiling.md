@@ -4,7 +4,7 @@
 
 ## Fair headline metric
 
-Default speed comparison uses:
+WRBench headline speed comparison uses:
 
 ```text
 gpu_seconds_per_output_second = sum(benchmark_gpu_seconds) / sum(output_video_seconds)
@@ -14,7 +14,7 @@ Where:
 
 - `benchmark_generation_seconds = preprocess_seconds + inference_seconds`
 - `benchmark_gpu_seconds = benchmark_generation_seconds × gpu_width`
-- **Model load is excluded** from the default comparison
+- **Model load is excluded** from the headline comparison
 - Only rows with `generation_status="generated"` count toward the denominator
 - Aggregation uses **sum/sum**, not mean-of-means
 
@@ -53,14 +53,11 @@ profile = run_profiled_command(["python", "gen.py"], cwd=".", summary_path="p.js
 rows = summarize(load_profiles(["profiles/"]))
 ```
 
-## Environment variables
+## Child-process instrumentation
 
-Child processes receive stage recording when the parent sets:
-
-- `WRBENCH_STAGE_EVENTS_PATH` — path to append `.stage_events.jsonl`
-- `WRBENCH_RESOURCE_COMMAND_ID` — command identity hash
-
-Use `from wrbench.profiling import get_stage_recorder` inside the child.
+For custom generation launchers, call `from wrbench.profiling import get_stage_recorder`
+inside the child process and write spans through the returned recorder. Under
+`wrbench profile`, the parent command wires the child recorder context for you.
 
 ## Dependencies
 
@@ -83,9 +80,9 @@ one scene × two yaw directions). Treat cross-model ordering as indicative, not 
 benchmark. `gpu_seconds_per_output_second` multiplies benchmark wall time by `gpu_width`
 (GPUs visible to the job via `CUDA_VISIBLE_DEVICES`).
 
-**Out of scope for v1 cost table:** `sana-wm`, `minwm-hy-action2v`, `matrix-game-2`
-(no smoke-task harness yet); `hunyuanworld-voyager` (research-only); `hyworld-worldgen`
-(upstream blocked).
+**Out of scope for v1 cost table:** `sana-wm`, `minwm-hy-action2v`,
+`matrix-game-2`, `hunyuanworld-voyager`, and `hyworld-worldgen` did not have a
+maintained public smoke-task harness in this cost snapshot.
 
 Summarize saved profiles with WRBench:
 

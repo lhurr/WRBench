@@ -54,6 +54,13 @@ def require_int(node: dict[str, Any], field: str) -> int:
     return int(value)
 
 
+def require_float(node: dict[str, Any], field: str) -> float:
+    value = node.get(field)
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        raise ContractError(f"Missing required numeric field: {field}")
+    return float(value)
+
+
 def require_bool(node: dict[str, Any], field: str) -> bool:
     value = node.get(field)
     if not isinstance(value, bool):

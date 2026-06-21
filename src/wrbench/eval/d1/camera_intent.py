@@ -80,7 +80,7 @@ def _yaw_degrees(relative: np.ndarray) -> np.ndarray:
 
 
 def _motion_strength(relative: np.ndarray) -> tuple[float, float]:
-    rot_deg = max((_rotation_angle_deg(pose[:3, :3]) for pose in relative), default=0.0)
+    rot_deg = 0.0 if len(relative) == 0 else max(_rotation_angle_deg(pose[:3, :3]) for pose in relative)
     trans = relative[:, :3, 3]
     trans_norm = math.sqrt(float(np.max(np.sum(trans * trans, axis=1)))) if len(trans) else 0.0
     return float(rot_deg), float(trans_norm)

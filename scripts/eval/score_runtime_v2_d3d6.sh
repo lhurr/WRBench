@@ -6,52 +6,74 @@ WRBENCH_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 SCORING_DIR="${WRBENCH_ROOT}/src/wrbench/eval/scoring"
 REPO_ROOT="${WRBENCH_ROOT}"
 export PYTHONPATH="${WRBENCH_ROOT}/src${PYTHONPATH:+:${PYTHONPATH}}"
-export FORCE_QWENVL_VIDEO_READER="${FORCE_QWENVL_VIDEO_READER:-decord}"
-export WORLD_STATE_VIDEO_BACKEND="${WORLD_STATE_VIDEO_BACKEND:-decord}"
 
-PY_SCORER="${PY_SCORER:-python}"
-PY_HELPER="${PY_HELPER:-${PY_SCORER}}"
+require_env() {
+  local name="$1"
+  local value="${!name:-}"
+  if [[ -z "$value" ]]; then
+    echo "[error] required environment variable ${name} is not set" >&2
+    exit 2
+  fi
+  printf '%s' "$value"
+}
 
-MANIFEST="${MANIFEST:-}"
-OUT_DIR="${OUT_DIR:-${WRBENCH_ROOT}/eval_outputs/runtime_v2_d3d6_$(date +%Y%m%d_%H%M%S)}"
-QWEN35_MODEL="${QWEN35_MODEL:-}"
-QWEN3VL_MODEL="${QWEN3VL_MODEL:-}"
+export FORCE_QWENVL_VIDEO_READER="$(require_env FORCE_QWENVL_VIDEO_READER)"
+export WORLD_STATE_VIDEO_BACKEND="$(require_env WORLD_STATE_VIDEO_BACKEND)"
 
-SCORER_PROFILE="${SCORER_PROFILE:-wrbench_default}"
+PY_SCORER="$(require_env PY_SCORER)"
+PY_HELPER="$(require_env PY_HELPER)"
+
+MANIFEST="$(require_env MANIFEST)"
+OUT_DIR="$(require_env OUT_DIR)"
+QWEN35_MODEL="$(require_env QWEN35_MODEL)"
+QWEN3VL_MODEL="$(require_env QWEN3VL_MODEL)"
+
+SCORER_PROFILE="$(require_env SCORER_PROFILE)"
+RUN_TAG="$(require_env RUN_TAG)"
+PROMPT_MODE="$(require_env PROMPT_MODE)"
+TASK_CONTEXT_MODE="$(require_env TASK_CONTEXT_MODE)"
 SOURCE_SCORES="${SOURCE_SCORES:-}"
-NUM_SHARDS="${NUM_SHARDS:-1}"
-SHARD_IDS="${SHARD_IDS:-0}"
-CUDA_DEVICES_CSV="${CUDA_DEVICES_CSV:-0}"
-FPS="${FPS:-2}"
-PROGRESS_EVERY="${PROGRESS_EVERY:-1}"
-STRICT_MANIFEST_CONTRACT="${STRICT_MANIFEST_CONTRACT:-0}"
+NUM_SHARDS="$(require_env NUM_SHARDS)"
+SHARD_IDS="$(require_env SHARD_IDS)"
+CUDA_DEVICES_CSV="$(require_env CUDA_DEVICES_CSV)"
+FPS="$(require_env FPS)"
+PROGRESS_EVERY="$(require_env PROGRESS_EVERY)"
+SKIP_EXISTING="$(require_env SKIP_EXISTING)"
+QWEN35_VLM_NAME="$(require_env QWEN35_VLM_NAME)"
+QWEN35_LOADER_FAMILY="$(require_env QWEN35_LOADER_FAMILY)"
+QWEN35_DTYPE="$(require_env QWEN35_DTYPE)"
+QWEN35_ATTN_IMPLEMENTATION="$(require_env QWEN35_ATTN_IMPLEMENTATION)"
+QWEN35_NUM_SAMPLES="$(require_env QWEN35_NUM_SAMPLES)"
+QWEN35_MAX_VIDEOS="$(require_env QWEN35_MAX_VIDEOS)"
+QWEN35_EVIDENCE_CONTEXT_MODE="$(require_env QWEN35_EVIDENCE_CONTEXT_MODE)"
+QWEN3VL_DTYPE="$(require_env QWEN3VL_DTYPE)"
+QWEN3VL_ATTN_IMPLEMENTATION="$(require_env QWEN3VL_ATTN_IMPLEMENTATION)"
+QWEN3VL_MAX_NEW_TOKENS="$(require_env QWEN3VL_MAX_NEW_TOKENS)"
+QWEN3VL_MAX_VIDEOS="$(require_env QWEN3VL_MAX_VIDEOS)"
+QWEN3VL_BINARY_PROMPT_SCHEMA="$(require_env QWEN3VL_BINARY_PROMPT_SCHEMA)"
+QWEN3VL_RESCUE_PROMPT_SCHEMA="$(require_env QWEN3VL_RESCUE_PROMPT_SCHEMA)"
+if [[ "$SKIP_EXISTING" != "0" && "$SKIP_EXISTING" != "1" ]]; then
+  echo "[error] SKIP_EXISTING must be 0 or 1" >&2
+  exit 2
+fi
 
 case "$SCORER_PROFILE" in
-  wrbench_default|current_benchmark_p25_p22_e14)
-    RUN_TAG="${RUN_TAG:-runtime_v2_d3d6_wrbench_default}"
-    PROMPT_MODE="${PROMPT_MODE:-runtime_v2_probe_logprob_p25_d3d4_slot_parse}"
-    TASK_CONTEXT_MODE="${TASK_CONTEXT_MODE:-none}"
+  wrbench_default)
     qwen35_runner_prefix=(
       "${SCORING_DIR}/run_qwen35_p25_d3d4_slot_parse_overlay.py"
       --repo-root "$REPO_ROOT"
       --
     )
     ;;
-  legacy_p9_all_manifest_metadata|ablation_manifest_metadata)
-    RUN_TAG="${RUN_TAG:-runtime_v2_d3d6_legacy_p9_allmeta}"
-    PROMPT_MODE="${PROMPT_MODE:-runtime_v2_probe_logprob_p9_d4_p8_d5_p6_combined}"
-    TASK_CONTEXT_MODE="${TASK_CONTEXT_MODE:-all_manifest_metadata}"
+  ablation_manifest_metadata)
     qwen35_runner_prefix=("${SCORING_DIR}/run_local_qwen35_probe_logprob_scorer.py")
     ;;
   custom)
-    RUN_TAG="${RUN_TAG:-runtime_v2_d3d6_custom}"
-    PROMPT_MODE="${PROMPT_MODE:?PROMPT_MODE is required when SCORER_PROFILE=custom}"
-    TASK_CONTEXT_MODE="${TASK_CONTEXT_MODE:?TASK_CONTEXT_MODE is required when SCORER_PROFILE=custom}"
     qwen35_runner_prefix=("${SCORING_DIR}/run_local_qwen35_probe_logprob_scorer.py")
     ;;
   *)
     echo "[error] unsupported SCORER_PROFILE: $SCORER_PROFILE" >&2
-    echo "[error] expected wrbench_default, ablation_manifest_metadata, legacy_p9_all_manifest_metadata, or custom" >&2
+    echo "[error] expected wrbench_default, ablation_manifest_metadata, or custom" >&2
     exit 2
     ;;
 esac
@@ -80,15 +102,25 @@ Manifest contract:
   passed through when present.
 
 Notes:
-  Default SCORER_PROFILE is wrbench_default (alias: current_benchmark_p25_p22_e14):
+  Required environment also includes PY_SCORER, PY_HELPER, SCORER_PROFILE,
+  RUN_TAG, PROMPT_MODE, TASK_CONTEXT_MODE, NUM_SHARDS, SHARD_IDS,
+  CUDA_DEVICES_CSV, FPS, PROGRESS_EVERY, SKIP_EXISTING,
+  FORCE_QWENVL_VIDEO_READER, WORLD_STATE_VIDEO_BACKEND, QWEN35_* scorer
+  hyperparameters, and QWEN3VL_* evidence hyperparameters.
+
+  Example scorer profile value:
+  SCORER_PROFILE=wrbench_default:
   visible D3/D4 + returned D5/D6 probe logprob scoring with shared re-observation
   judgeability gate for returned-state metrics.
-  Use SCORER_PROFILE=ablation_manifest_metadata (alias legacy_p9_all_manifest_metadata)
-  only for ablation reruns.
 EOF
 }
 
-stage="${1:-preflight}"
+if [[ "$#" -lt 1 ]]; then
+  echo "[error] stage argument is required" >&2
+  usage >&2
+  exit 2
+fi
+stage="$1"
 case "$stage" in
   preflight|qwen35|merge_qwen35|gate_binary|merge_binary|build_rescue|gate_rescue|merge_rescue|overlay_gate|export|all)
     ;;
@@ -191,17 +223,32 @@ qwen35_args=(
   --output-dir "$QWEN35_OUT"
   --model-path "$QWEN35_MODEL"
   --fps "$FPS"
+  --max-videos "$QWEN35_MAX_VIDEOS"
   --progress-every "$PROGRESS_EVERY"
   --prompt-mode "$PROMPT_MODE"
   --task-context-mode "$TASK_CONTEXT_MODE"
+  --vlm-name "$QWEN35_VLM_NAME"
+  --loader-family "$QWEN35_LOADER_FAMILY"
+  --dtype "$QWEN35_DTYPE"
+  --attn-implementation "$QWEN35_ATTN_IMPLEMENTATION"
+  --num-samples "$QWEN35_NUM_SAMPLES"
+  --evidence-context-mode "$QWEN35_EVIDENCE_CONTEXT_MODE"
+  --num-shards "$NUM_SHARDS"
+  --shard-id "0"
+  --local-rank "0"
 )
 if [[ -n "$SOURCE_SCORES" ]]; then
   qwen35_args+=(--source-scores "$SOURCE_SCORES")
 fi
-if [[ "$STRICT_MANIFEST_CONTRACT" == "1" ]]; then
+if [[ "$SKIP_EXISTING" == "0" ]]; then
   qwen35_args+=(--strict-manifest-contract)
 else
   qwen35_args+=(--skip-existing)
+fi
+
+maybe_skip_existing=()
+if [[ "$SKIP_EXISTING" == "1" ]]; then
+  maybe_skip_existing=(--skip-existing)
 fi
 
 run_stage() {
@@ -226,17 +273,28 @@ run_stage() {
         --manifest-path "$MANIFEST" \
         --output-dir "$BINARY_GATE_OUT" \
         --model-path "$QWEN3VL_MODEL" \
-        --prompt-schema subject_judgeability_v1 \
+        --prompt-schema "$QWEN3VL_BINARY_PROMPT_SCHEMA" \
         --fps "$FPS" \
-        --skip-existing
+        --max-videos "$QWEN3VL_MAX_VIDEOS" \
+        --dtype "$QWEN3VL_DTYPE" \
+        --attn-implementation "$QWEN3VL_ATTN_IMPLEMENTATION" \
+        --max-new-tokens "$QWEN3VL_MAX_NEW_TOKENS" \
+        "${maybe_skip_existing[@]}"
       ;;
     merge_binary)
       "$PY_SCORER" "${SCORING_DIR}/run_local_qwen3vl_video_evidence.py" \
         --manifest-path "$MANIFEST" \
         --output-dir "$BINARY_GATE_OUT" \
         --model-path "$QWEN3VL_MODEL" \
-        --prompt-schema subject_judgeability_v1 \
+        --prompt-schema "$QWEN3VL_BINARY_PROMPT_SCHEMA" \
         --fps "$FPS" \
+        --max-videos "$QWEN3VL_MAX_VIDEOS" \
+        --dtype "$QWEN3VL_DTYPE" \
+        --attn-implementation "$QWEN3VL_ATTN_IMPLEMENTATION" \
+        --max-new-tokens "$QWEN3VL_MAX_NEW_TOKENS" \
+        --num-shards "$NUM_SHARDS" \
+        --shard-id "0" \
+        --local-rank "0" \
         --merge-only
       ;;
     build_rescue)
@@ -257,9 +315,13 @@ run_stage() {
           --manifest-path "$RESCUE_OUT/manifest_qwen3vl_guarded_rescue.json" \
           --output-dir "$RESCUE_OUT" \
           --model-path "$QWEN3VL_MODEL" \
-          --prompt-schema guarded_teacher_gate_v3 \
+          --prompt-schema "$QWEN3VL_RESCUE_PROMPT_SCHEMA" \
           --fps "$FPS" \
-          --skip-existing
+          --max-videos "$QWEN3VL_MAX_VIDEOS" \
+          --dtype "$QWEN3VL_DTYPE" \
+          --attn-implementation "$QWEN3VL_ATTN_IMPLEMENTATION" \
+          --max-new-tokens "$QWEN3VL_MAX_NEW_TOKENS" \
+          "${maybe_skip_existing[@]}"
       fi
       ;;
     merge_rescue)
@@ -273,8 +335,15 @@ run_stage() {
           --manifest-path "$RESCUE_OUT/manifest_qwen3vl_guarded_rescue.json" \
           --output-dir "$RESCUE_OUT" \
           --model-path "$QWEN3VL_MODEL" \
-          --prompt-schema guarded_teacher_gate_v3 \
+          --prompt-schema "$QWEN3VL_RESCUE_PROMPT_SCHEMA" \
           --fps "$FPS" \
+          --max-videos "$QWEN3VL_MAX_VIDEOS" \
+          --dtype "$QWEN3VL_DTYPE" \
+          --attn-implementation "$QWEN3VL_ATTN_IMPLEMENTATION" \
+          --max-new-tokens "$QWEN3VL_MAX_NEW_TOKENS" \
+          --num-shards "$NUM_SHARDS" \
+          --shard-id "0" \
+          --local-rank "0" \
           --merge-only
       fi
       ;;
